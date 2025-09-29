@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/mut/loan/**",  // ✅ Tous les endpoints loan sont autorisés
                                 "/mut/admin/**",
                                 "/mut/event/**",
+                                "/mut/upload/**",
                                 "/mut/notification"
                         ).permitAll()
                         .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER", "ADMIN")

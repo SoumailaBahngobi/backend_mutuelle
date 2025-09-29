@@ -12,10 +12,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/mut/contribution")
@@ -288,4 +294,84 @@ public class ContributionController {
         public BigDecimal getIndividualAmount() { return individualAmount; }
         public BigDecimal getGroupAmount() { return groupAmount; }
     }
+
+
+    @RequestMapping("/mut/upload")
+    @CrossOrigin(origins = "http://localhost:3000")
+    public class FileUploadController {
+
+        private final String UPLOAD_DIR = "./uploads/payment-proofs/";
+
+        @PostMapping("/payment-proof")
+        public ResponseEntity<?> uploadPaymentProof(@RequestParam("file") MultipartFile file) {
+            try {
+                // Vérifier si le fichier est vide
+                if (file.isEmpty()) {
+                    return ResponseEntity.badRequest().body("Le fichier est vide");
+                }
+
+                // Vérifier le type de fichier
+                String contentType = file.getContentType();
+                if (contentType == null ||
+                        (!contentType.startsWith("image/") && !contentType.equals("application/pdf"))) {
+                    return ResponseEntity.badRequest().body("Type de fichier non supporté. Formats acceptés: images et PDF");
+                }
+
+                // Vérifier la taille du fichier (5MB max)
+                if (file.getSize() > 5 * 1024 * 1024) {
+                    return ResponseEntity.badRequest().body("Le fichier est trop volumineux. Taille maximale: 5MB");
+                }
+
+                // Créer le répertoire s'il n'existe pas
+                Path uploadPath = Paths.get(UPLOAD_DIR);
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+
+                // Générer un nom de fichier unique
+                String originalFileName = file.getOriginalFilename();
+                String fileExtension = "";
+                if (originalFileName != null && originalFileName.contains(".")) {
+                    fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                }
+
+                String fileName = UUID.randomUUID().toString() + fileExtension;
+                Path filePath = uploadPath.resolve(fileName);
+
+                // Sauvegarder le fichier
+                Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+                // Retourner le nom du fichier
+                return ResponseEntity.ok(fileName);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Erreur lors de l'upload du fichier: " + e.getMessage());
+            }
+        }
+
+        // Endpoint pour récupérer un fichier
+        @GetMapping("/payment-proof/{filename}")
+        public ResponseEntity<byte[]> getPaymentProof(@PathVariable String filename) {
+            try {
+                Path filePath = Paths.get(UPLOAD_DIR).resolve(filename);
+                if (!Files.exists(filePath)) {
+                    return ResponseEntity.notFound().build();
+                }
+
+                byte[] fileBytes = Files.readAllBytes(filePath);
+                String contentType = Files.probeContentType(filePath);
+
+                return ResponseEntity.ok()
+                        .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                        .body(fileBytes);
+
+            } catch (Exception e) {
+                return ResponseEntity.notFound().build();
+            }
+        }
+    }
+
+
 }

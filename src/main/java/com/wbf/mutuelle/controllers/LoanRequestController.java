@@ -22,10 +22,10 @@ import com.wbf.mutuelle.services.LoanRequestService;
 public class LoanRequestController {
 
     private final LoanRequestService loanRequestService;
-
+/*
     public LoanRequestController(LoanRequestService loanRequestService) {
         this.loanRequestService = loanRequestService;
-    }
+}*/
 
     @GetMapping
     public List<LoanRequest> getAllLoanRequests() {
@@ -46,7 +46,7 @@ public class LoanRequestController {
         // Dans une implémentation réelle, vous devriez avoir un service pour récupérer le membre par email
         return List.of(); // Placeholder
     }
-
+/*
     @PostMapping
     public LoanRequest createLoanRequest(@RequestBody LoanRequest loanRequest,
                                          @AuthenticationPrincipal UserDetails userDetails) {
@@ -55,12 +55,24 @@ public class LoanRequestController {
         }
 
         return loanRequestService.createLoanRequest(loanRequest, userDetails.getUsername());
-    }
-
+    }*/
+/*
     @PutMapping("/{id}")
     public ResponseEntity<LoanRequest> updateLoanRequest(@PathVariable Long id, @RequestBody LoanRequest loanRequest) {
         try {
             return ResponseEntity.ok(loanRequestService.updateLoanRequest(id, loanRequest));
+          // return ResponseEntity.ok(loanRequestService.u)
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    */
+
+    @PutMapping("/{id}")
+    public ResponseEntity<LoanRequest> updateLoanRequest(@PathVariable Long id, @RequestBody LoanRequest loanRequest) {
+        try {
+            LoanRequest updatedRequest = loanRequestService.updateLoanRequest(id, loanRequest);
+            return ResponseEntity.ok(updatedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -75,6 +87,47 @@ public class LoanRequestController {
             return ResponseEntity.notFound().build();
         }
     }
+    
+/*
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<LoanRequest> approveLoanRequest(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(loanRequestService.approveLoanRequest(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }*/
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<LoanRequest> rejectLoanRequest(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(loanRequestService.rejectLoanRequest(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    /* 24-09-2025*/
+
+
+   // private final LoanRequestService loanRequestService;
+
+    public LoanRequestController(LoanRequestService loanRequestService) {
+        this.loanRequestService = loanRequestService;
+    }
+
+    @PostMapping
+    public ResponseEntity<LoanRequest> createLoanRequest(@RequestBody LoanRequest loanRequest,
+                                                         @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            LoanRequest createdRequest = loanRequestService.createLoanRequest(loanRequest, userDetails.getUsername());
+            return ResponseEntity.ok(createdRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
 
     @PostMapping("/{id}/approve")
     public ResponseEntity<LoanRequest> approveLoanRequest(@PathVariable Long id) {
@@ -84,11 +137,23 @@ public class LoanRequestController {
             return ResponseEntity.notFound().build();
         }
     }
-
+/*
     @PostMapping("/{id}/reject")
-    public ResponseEntity<LoanRequest> rejectLoanRequest(@PathVariable Long id) {
+    public ResponseEntity<LoanRequest> rejectLoanRequest(@PathVariable Long id,
+                                                         @RequestParam(required = false) String reason) {
         try {
-            return ResponseEntity.ok(loanRequestService.rejectLoanRequest(id));
+            return ResponseEntity.ok(loanRequestService.rejectLoanRequest(id,
+                    reason != null ? reason : "Raison non spécifiée"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    */
+
+    @GetMapping("/member/{memberId}")
+    public ResponseEntity<List<LoanRequest>> getLoanRequestsByMember(@PathVariable Long memberId) {
+        try {
+            return ResponseEntity.ok(loanRequestService.getLoanRequestsByMemberId(memberId));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

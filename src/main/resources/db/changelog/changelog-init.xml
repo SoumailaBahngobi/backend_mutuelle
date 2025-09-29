@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.31.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1757436623574-1" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="contribution_period_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-2" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="contribution_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-3" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="event_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-4" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="loan_request_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-5" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="loan_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-6" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="member_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-7" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="notification_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-8" author="SoumailaBAHNGOBI">
+        <createSequence incrementBy="50" sequenceName="repayment_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1757436623574-9" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="contribution"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="contribution">
+            <column name="id_contribution" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_contribution"/>
+            </column>
+            <column name="payment_date" type="DATETIME"/>
+            <column name="amount" type="DECIMAL"/>
+            <column name="payment_mode" type="VARCHAR(255)"/>
+            <column name="payment_proof" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-10" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="contribution_contribution_periods"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="contribution_contribution_periods">
+            <column name="contribution_id_contribution" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contribution_periods_id_contribution_period" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-11" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="contribution_members"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="contribution_members">
+            <column name="contribution_id_contribution" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="members_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-12" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="contribution_period"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="contribution_period">
+            <column name="id_contribution_period" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_contribution_period"/>
+            </column>
+            <column name="begin_date" type="DATETIME"/>
+            <column name="end_date" type="DATETIME"/>
+            <column name="fixed_amount" type="DECIMAL"/>
+            <column name="active" type="BOOLEAN"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-13" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="event"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="event">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_event"/>
+            </column>
+            <column name="category" type="VARCHAR(255)"/>
+            <column name="amount" type="DECIMAL"/>
+            <column name="event_date" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-14" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="event_members"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="event_members">
+            <column name="event_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="members_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-15" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="loan"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="loan">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_loan"/>
+            </column>
+            <column name="amount" type="DECIMAL"/>
+            <column name="duration" type="INT"/>
+            <column name="begin_date" type="DATETIME"/>
+            <column name="repayment_amount" type="DECIMAL"/>
+            <column name="members_id" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-16" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="loan_request"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="loan_request">
+            <column name="id_loan_request" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_loan_request"/>
+            </column>
+            <column name="request_amount" type="DECIMAL"/>
+            <column name="duration" type="INT"/>
+            <column name="reason" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="request_date" type="DATETIME"/>
+            <column name="member_id" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-17" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="member"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="member">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_member"/>
+            </column>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="first_name" type="VARCHAR(255)"/>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="password" type="VARCHAR(255)"/>
+            <column name="npi" type="VARCHAR(255)"/>
+            <column name="phone" type="VARCHAR(255)"/>
+            <column name="role" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-18" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="notification"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="notification">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_notification"/>
+            </column>
+            <column name="msg" type="VARCHAR(255)"/>
+            <column name="send_date" type="DATETIME"/>
+            <column name="event_date" type="DATETIME"/>
+            <column name="receiver" type="VARCHAR(255)"/>
+            <column name="phone" type="VARCHAR(255)"/>
+            <column name="role" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="1757436623574-19" author="SoumailaBAHNGOBI">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="repayment"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="repayment">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_repayment"/>
+            </column>
+            <column name="amount" type="DECIMAL"/>
+            <column name="duration" type="INT"/>
+            <column name="reason" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="repayment_date" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-20" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="repayment_loans"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="repayment_loans">
+            <column name="repayment_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loans_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1757436623574-21" author="SoumailaBAHNGOBI">
+        <addUniqueConstraint columnNames="loans_id" constraintName="uc_repayment_loans_loans"
+                             tableName="repayment_loans"/>
+    </changeSet>
+    <changeSet id="1757436623574-22" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="members_id" baseTableName="loan" constraintName="FK_LOAN_ON_MEMBERS"
+                                 referencedColumnNames="id" referencedTableName="member"/>
+    </changeSet>
+    <changeSet id="1757436623574-23" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="member_id" baseTableName="loan_request"
+                                 constraintName="FK_LOAN_REQUEST_ON_MEMBER" referencedColumnNames="id_loan_request"
+                                 referencedTableName="loan_request"/>
+    </changeSet>
+    <changeSet id="1757436623574-24" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="contribution_id_contribution"
+                                 baseTableName="contribution_contribution_periods"
+                                 constraintName="fk_conconper_on_contribution" referencedColumnNames="id_contribution"
+                                 referencedTableName="contribution"/>
+    </changeSet>
+    <changeSet id="1757436623574-25" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="contribution_periods_id_contribution_period"
+                                 baseTableName="contribution_contribution_periods"
+                                 constraintName="fk_conconper_on_contribution_period"
+                                 referencedColumnNames="id_contribution_period"
+                                 referencedTableName="contribution_period"/>
+    </changeSet>
+    <changeSet id="1757436623574-26" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="contribution_id_contribution" baseTableName="contribution_members"
+                                 constraintName="fk_conmem_on_contribution" referencedColumnNames="id_contribution"
+                                 referencedTableName="contribution"/>
+    </changeSet>
+    <changeSet id="1757436623574-27" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="members_id" baseTableName="contribution_members"
+                                 constraintName="fk_conmem_on_member" referencedColumnNames="id"
+                                 referencedTableName="member"/>
+    </changeSet>
+    <changeSet id="1757436623574-28" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="event_id" baseTableName="event_members"
+                                 constraintName="fk_evemem_on_event" referencedColumnNames="id"
+                                 referencedTableName="event"/>
+    </changeSet>
+    <changeSet id="1757436623574-29" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="members_id" baseTableName="event_members"
+                                 constraintName="fk_evemem_on_member" referencedColumnNames="id"
+                                 referencedTableName="member"/>
+    </changeSet>
+    <changeSet id="1757436623574-30" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="loans_id" baseTableName="repayment_loans"
+                                 constraintName="fk_reploa_on_loan" referencedColumnNames="id"
+                                 referencedTableName="loan"/>
+    </changeSet>
+    <changeSet id="1757436623574-31" author="SoumailaBAHNGOBI">
+        <addForeignKeyConstraint baseColumnNames="repayment_id" baseTableName="repayment_loans"
+                                 constraintName="fk_reploa_on_repayment" referencedColumnNames="id"
+                                 referencedTableName="repayment"/>
+    </changeSet>
+
+</databaseChangeLog>
