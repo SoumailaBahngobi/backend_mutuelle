@@ -42,7 +42,7 @@ public class SecurityConfig {
                                 "/mut/login",
                                 "/mut/contribution_period/**",
                                 "/mut/contribution/**",
-                                "/mut/loan/**",  // ✅ Tous les endpoints loan sont autorisés
+                                "/mut/loan/**",  //  Tous les endpoints loan sont autorisés
                                 "/mut/admin/**",
                                 "/mut/event/**",
                                 "/mut/notification"
