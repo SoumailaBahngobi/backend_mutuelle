@@ -9,6 +9,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 
 @RestController
@@ -16,6 +18,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MemberController {
     private final MemberService memberService;
+
+    @GetMapping("/profile")
+    public ResponseEntity<Member> getProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        Member member = memberService.getAllMembers().stream()
+                .filter(m -> m.getEmail().equals(email))
+                .findFirst()
+                .orElseThrow();
+        return ResponseEntity.ok(member);
+    }
 
     @GetMapping
     public List<Member> getAllMembers() {
