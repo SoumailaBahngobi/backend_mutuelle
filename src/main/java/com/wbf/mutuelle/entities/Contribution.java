@@ -32,7 +32,17 @@ public class Contribution {
 
     private String paymentMode;
 
+    // private String paymentProofFileName;
     private String paymentProof;
+
+
+    public String getPaymentProof() {
+        return paymentProof;
+    }
+
+    public void setPaymentProof(String paymentProof) {
+        this.paymentProof = paymentProof;
+    }
 
     // Cas INDIVIDUELLE
     @ManyToOne

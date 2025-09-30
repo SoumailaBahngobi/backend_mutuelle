@@ -43,6 +43,11 @@ public class SecurityConfig {
                                 "/mut/contribution_period/**",
                                 "/mut/contribution/**",
                                 "/mut/loan/**",  //  Tous les endpoints loan sont autorisés
+                                "/mut/contribution/upload/payment-proof/**",
+                                "/mut/contribution/upload/payment-proof/",
+                                "/mut/contribution/individual/my-contributions",
+                                "/mut/contribution/individual/**",
+                                "mut/contribution/individual/member/**",
                                 "/mut/admin/**",
                                 "/mut/event/**",
                                 "/mut/upload/**",
