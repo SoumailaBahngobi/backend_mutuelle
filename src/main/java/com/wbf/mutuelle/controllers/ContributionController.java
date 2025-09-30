@@ -1,7 +1,6 @@
 package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.entities.Contribution;
-import com.wbf.mutuelle.entities.ContributionPeriod;
 import com.wbf.mutuelle.entities.ContributionType;
 import com.wbf.mutuelle.entities.Member;
 import com.wbf.mutuelle.repositories.MemberRepository;
@@ -33,6 +32,9 @@ public class ContributionController {
     private final MemberRepository memberRepository;
     private final String UPLOAD_DIR = "./uploads/payment-proofs/";
 
+    // =============================================
+    // ENDPOINTS D'UPLOAD DE FICHIERS
+    // =============================================
 
     @PostMapping("/upload/payment-proof")
     public ResponseEntity<?> uploadPaymentProof(@RequestParam("file") MultipartFile file) {
@@ -41,7 +43,6 @@ public class ContributionController {
             System.out.println("Nom: " + file.getOriginalFilename());
             System.out.println("Taille: " + file.getSize());
 
-            // Vérifications
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body("Le fichier est vide");
             }
@@ -55,13 +56,11 @@ public class ContributionController {
                 return ResponseEntity.badRequest().body("Le fichier est trop volumineux. Taille maximale: 5MB");
             }
 
-            // Créer répertoire
             Path uploadPath = Paths.get(UPLOAD_DIR);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // Générer nom unique
             String originalFileName = file.getOriginalFilename();
             String fileExtension = "";
             if (originalFileName != null && originalFileName.contains(".")) {
@@ -71,7 +70,6 @@ public class ContributionController {
             String fileName = UUID.randomUUID().toString() + fileExtension;
             Path filePath = uploadPath.resolve(fileName);
 
-            // Sauvegarder
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             System.out.println("=== UPLOAD RÉUSSI: " + fileName + " ===");
@@ -105,6 +103,9 @@ public class ContributionController {
         }
     }
 
+    // =============================================
+    // ENDPOINTS CRUD COTISATIONS
+    // =============================================
 
     @GetMapping
     public ResponseEntity<List<Contribution>> getAllContributions() {
@@ -126,29 +127,9 @@ public class ContributionController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateContribution(@PathVariable Long id, @RequestBody Contribution contribution) {
-        try {
-            Contribution updatedContribution = contributionService.updateContribution(id, contribution);
-            return ResponseEntity.ok(updatedContribution);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la mise à jour");
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteContribution(@PathVariable Long id) {
-        try {
-            contributionService.deleteContribution(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-  
+    // =============================================
+    // CRÉATION DE COTISATIONS
+    // =============================================
 
     @PostMapping("/individual")
     public ResponseEntity<?> createIndividualContribution(@RequestBody Contribution contribution,
@@ -158,7 +139,10 @@ public class ContributionController {
                     .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
 
             contribution.setContributionType(ContributionType.INDIVIDUAL);
-            Contribution createdContribution = createIndividualContribution(contribution, connectedMember);
+            contribution.setMember(connectedMember);
+            contribution.setMembers(null);
+
+            Contribution createdContribution = contributionService.createContribution(contribution);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdContribution);
 
         } catch (RuntimeException e) {
@@ -176,7 +160,25 @@ public class ContributionController {
                     .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
 
             contribution.setContributionType(ContributionType.GROUP);
-            Contribution createdContribution = createGroupContribution(contribution, connectedMember);
+
+            if (contribution.getMembers() == null) {
+                contribution.setMembers(new ArrayList<>());
+            }
+
+            boolean connectedMemberInList = contribution.getMembers().stream()
+                    .anyMatch(m -> m.getId() != null && m.getId().equals(connectedMember.getId()));
+
+            if (!connectedMemberInList) {
+                Member memberRef = new Member();
+                memberRef.setId(connectedMember.getId());
+                contribution.getMembers().add(memberRef);
+            }
+
+            if (contribution.getMembers().size() < 2) {
+                throw new RuntimeException("Une cotisation groupée doit concerner au moins 2 membres !");
+            }
+
+            Contribution createdContribution = contributionService.createContribution(contribution);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdContribution);
 
         } catch (RuntimeException e) {
@@ -186,42 +188,9 @@ public class ContributionController {
         }
     }
 
-    private Contribution createIndividualContribution(Contribution contribution, Member connectedMember) {
-        if (contribution.getMembers() != null && !contribution.getMembers().isEmpty()) {
-            throw new RuntimeException("Une cotisation individuelle ne peut pas avoir une liste de membres !");
-        }
-
-        contribution.setMember(connectedMember);
-        contribution.setMembers(null);
-        return contributionService.createContribution(contribution);
-    }
-
-    private Contribution createGroupContribution(Contribution contribution, Member connectedMember) {
-        if (contribution.getMember() != null) {
-            throw new RuntimeException("Une cotisation groupée ne peut pas avoir un membre individuel !");
-        }
-
-        if (contribution.getMembers() == null) {
-            contribution.setMembers(new ArrayList<>());
-        }
-
-        boolean connectedMemberInList = contribution.getMembers().stream()
-                .anyMatch(m -> m.getId() != null && m.getId().equals(connectedMember.getId()));
-
-        if (!connectedMemberInList) {
-            Member memberRef = new Member();
-            memberRef.setId(connectedMember.getId());
-            contribution.getMembers().add(memberRef);
-        }
-
-        if (contribution.getMembers().size() < 2) {
-            throw new RuntimeException("Une cotisation groupée doit concerner au moins 2 membres !");
-        }
-
-        return contributionService.createContribution(contribution);
-    }
-
-  
+    // =============================================
+    // ENDPOINTS DE LECTURE PAR TYPE
+    // =============================================
 
     @GetMapping("/individual")
     public ResponseEntity<List<Contribution>> getIndividualContributions() {
@@ -243,6 +212,23 @@ public class ContributionController {
         }
     }
 
+    // =============================================
+    // ENDPOINTS PERSONNALISÉS (MES COTISATIONS)
+    // =============================================
+
+    @GetMapping("/my-contributions")
+    public ResponseEntity<List<Contribution>> getMyAllContributions(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+
+            List<Contribution> contributions = contributionService.getContributionsByMember(connectedMember.getId());
+            return ResponseEntity.ok(contributions);
+        } catch (Exception e) {
+            System.err.println("Erreur récupération toutes les cotisations: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
     @GetMapping("/individual/my-contributions")
     public ResponseEntity<List<Contribution>> getMyIndividualContributions(@AuthenticationPrincipal UserDetails userDetails) {
@@ -253,11 +239,12 @@ public class ContributionController {
             List<Contribution> contributions = contributionService.getIndividualContributionsByMember(connectedMember.getId());
             return ResponseEntity.ok(contributions);
         } catch (Exception e) {
+            System.err.println("Erreur récupération cotisations individuelles: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @GetMapping("/group/my_contributions")
+    @GetMapping("/group/my-contributions")
     public ResponseEntity<List<Contribution>> getMyGroupContributions(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
@@ -266,14 +253,16 @@ public class ContributionController {
             List<Contribution> contributions = contributionService.getGroupContributionsByMember(connectedMember.getId());
             return ResponseEntity.ok(contributions);
         } catch (Exception e) {
+            System.err.println("Erreur récupération cotisations groupées: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
- 
-  
+    // =============================================
+    // STATISTIQUES
+    // =============================================
 
-    @GetMapping("/total_amount")
+    @GetMapping("/total-amount")
     public ResponseEntity<BigDecimal> getTotalContributionsAmount() {
         try {
             BigDecimal totalAmount = contributionService.getTotalContributionsAmount();
@@ -283,7 +272,7 @@ public class ContributionController {
         }
     }
 
-    @GetMapping("/my_total_amount")
+    @GetMapping("/my-total-amount")
     public ResponseEntity<BigDecimal> getMyTotalContributionsAmount(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
@@ -296,7 +285,7 @@ public class ContributionController {
         }
     }
 
-    @GetMapping("/total_amount/{contributionType}")
+    @GetMapping("/total-amount/{contributionType}")
     public ResponseEntity<BigDecimal> getTotalAmountByType(@PathVariable ContributionType contributionType) {
         try {
             BigDecimal totalAmount = contributionService.getTotalAmountByType(contributionType);
@@ -320,7 +309,9 @@ public class ContributionController {
         }
     }
 
-    
+    // =============================================
+    // CLASSES INTERNES
+    // =============================================
 
     public static class ContributionStatistics {
         private final BigDecimal totalAmount;
