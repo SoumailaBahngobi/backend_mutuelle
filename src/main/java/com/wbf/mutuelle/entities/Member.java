@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
 @Setter
 @Getter
 @Entity
@@ -24,6 +28,26 @@ public class Member {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    // Champs pour la gestion des prêts
+    @Column(name = "is_regular")
+    private Boolean isRegular = false;
+
+    @Column(name = "has_previous_debt")
+    private Boolean hasPreviousDebt = false;
+
+    @Column(name = "last_subscription_date")
+    private LocalDate lastSubscriptionDate;
+
+    @Column(name = "subscription_status")
+    private String subscriptionStatus = "PENDING";
+
+    // RELATIONS AVEC LES PRÊTS - AJOUTEZ CES DEUX LIGNES
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<LoanRequest> loanRequests = new ArrayList<>();
+
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Loan> loans = new ArrayList<>();
+
     public Member() {
     }
 
@@ -37,5 +61,59 @@ public class Member {
         this.npi = npi;
         this.phone = phone;
         this.role = role;
+        this.isRegular = false;
+        this.hasPreviousDebt = false;
+        this.loanRequests = new ArrayList<>();
+        this.loans = new ArrayList<>();
+    }
+
+    public boolean isSubscriptionActive() {
+        return "ACTIVE".equals(subscriptionStatus) && Boolean.TRUE.equals(isRegular);
+    }
+
+    public boolean canRequestLoan() {
+        return isSubscriptionActive() &&
+                !Boolean.TRUE.equals(hasPreviousDebt) &&
+                hasNoActiveLoans();
+    }
+
+    private boolean hasNoActiveLoans() {
+        // Vérification sécurisée
+        if (loans == null || loans.isEmpty()) {
+            return true;
+        }
+        return loans.stream()
+                .noneMatch(loan -> loan != null && !loan.getIsRepaid());
+    }
+
+    public boolean isPresident() {
+        return role != null && "PRESIDENT".equalsIgnoreCase(role.name());
+    }
+
+    public boolean isSecretary() {
+        return role != null && "SECRETARY".equalsIgnoreCase(role.name());
+    }
+
+    public boolean isTreasurer() {
+        return role != null && "TREASURER".equalsIgnoreCase(role.name());
+    }
+
+    public boolean isAdmin() {
+        return role != null && "ADMIN".equalsIgnoreCase(role.name());
+    }
+
+    // Méthodes utilitaires pour éviter les NullPointerException
+    public List<LoanRequest> getLoanRequests() {
+        if (this.loanRequests == null) {
+            this.loanRequests = new ArrayList<>();
+        }
+        return loanRequests;
+    }
+
+    public List<Loan> getLoans() {
+        if (this.loans == null) {
+            this.loans = new ArrayList<>();
+        }
+        return loans;
     }
 }

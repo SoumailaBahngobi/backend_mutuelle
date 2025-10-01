@@ -1,4 +1,4 @@
-package com.wbf.mutuelle.repositories;
+/*package com.wbf.mutuelle.repositories;
 
 import java.util.List;
 
@@ -10,8 +10,23 @@ import com.wbf.mutuelle.entities.Member;
 
 @Repository
 public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
-   /*  boolean existsByMemberAndIsRepaidFalse(Member member);
-    boolean existsByMemberAndStatus(Member member, String status);*/
+
   List<LoanRequest> findByMember(Member member);
     List<LoanRequest> findByMemberId(Long memberId);  
+}
+*/
+
+package com.wbf.mutuelle.repositories;
+
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import com.wbf.mutuelle.entities.LoanRequest;
+import com.wbf.mutuelle.entities.Member;
+
+@Repository
+public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
+    List<LoanRequest> findByMember(Member member);
+    List<LoanRequest> findByMemberId(Long memberId);
+    List<LoanRequest> findByStatus(String status);
 }

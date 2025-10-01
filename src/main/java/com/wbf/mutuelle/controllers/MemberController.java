@@ -5,6 +5,7 @@ import com.wbf.mutuelle.services.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,5 +56,53 @@ public class MemberController {
     public ResponseEntity<Void> deleteMember(@PathVariable Long id) {
         memberService.deleteMember(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/subscription")
+    public ResponseEntity<Member> updateSubscription(
+            @PathVariable Long id,
+            @RequestParam Boolean isRegular,
+            @RequestParam String subscriptionDate) {
+        try {
+            java.time.LocalDate date = java.time.LocalDate.parse(subscriptionDate);
+            Member updatedMember = memberService.updateSubscriptionStatus(id, isRegular, date);
+            return ResponseEntity.ok(updatedMember);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PutMapping("/{id}/debt-status")
+    public ResponseEntity<Member> updateDebtStatus(
+            @PathVariable Long id,
+            @RequestParam Boolean hasDebt) {
+        try {
+            Member updatedMember = memberService.updateDebtStatus(id, hasDebt);
+            return ResponseEntity.ok(updatedMember);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{id}/can-request-loan")
+    public ResponseEntity<Boolean> canRequestLoan(@PathVariable Long id) {
+        try {
+            boolean canRequest = memberService.validateMemberForLoan(id);
+            return ResponseEntity.ok(canRequest);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(false);
+        }
+    }
+
+    @GetMapping("/current/can-request-loan")
+    public ResponseEntity<Boolean> canCurrentUserRequestLoan(@AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
+        try {
+            Member member = memberService.getMemberByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+            boolean canRequest = memberService.validateMemberForLoan(member.getId());
+            return ResponseEntity.ok(canRequest);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(false);
+        }
     }
 }

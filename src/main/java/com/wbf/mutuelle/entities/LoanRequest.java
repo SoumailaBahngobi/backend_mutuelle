@@ -21,15 +21,7 @@ public class LoanRequest {
     private Long id;
 
     @Column(name = "request_amount", nullable = false)
-    private BigDecimal request_amount;
-
-    public Boolean getRepaid() {
-        return is_repaid;
-    }
-
-    public void setRepaid(Boolean repaid) {
-        is_repaid = repaid;
-    }
+    private BigDecimal requestAmount;
 
     @Column(nullable = false)
     private Integer duration;
@@ -40,42 +32,44 @@ public class LoanRequest {
     @Column(nullable = false)
     private String status = "PENDING";
 
-    public Boolean getIs_repaid() {
-        return is_repaid;
-    }
-
-    public void setIs_repaid(Boolean is_repaid) {
-        this.is_repaid = is_repaid;
-    }
-
     @Column(name = "is_repaid")
-    private Boolean is_repaid = false;
+    private Boolean isRepaid = false;
+
+    @Column(name = "accept_terms")
+    private Boolean acceptTerms = false;
 
     @Temporal(TemporalType.DATE)
     @Column(name = "request_date", nullable = false)
-    private Date request_date = new Date();
+    private Date requestDate = new Date();
+
+    // Validations par les responsables
+    @Column(name = "president_approved")
+    private Boolean presidentApproved = false;
+
+    @Column(name = "secretary_approved")
+    private Boolean secretaryApproved = false;
+
+    @Column(name = "treasurer_approved")
+    private Boolean treasurerApproved = false;
+
+    @Column(name = "interest_rate")
+    private BigDecimal interestRate = new BigDecimal("5.0");
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    public Long getId() {
-        return id;
+    public Boolean isFullyApproved() {
+        return Boolean.TRUE.equals(presidentApproved) &&
+                Boolean.TRUE.equals(secretaryApproved) &&
+                Boolean.TRUE.equals(treasurerApproved);
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public Boolean getIsRepaid() {
+        return isRepaid;
     }
 
-    public LoanRequest(BigDecimal request_amount, Integer duration, String reason, String status, Boolean is_repaid, Date request_date, Member member) {
-
-        this.request_amount = request_amount;
-        this.duration = duration;
-        this.reason = reason;
-        this.status = status;
-        this.is_repaid = is_repaid;
-        this.request_date = request_date;
-        this.member = member;
+    public void setIsRepaid(Boolean isRepaid) {
+        this.isRepaid = isRepaid;
     }
-
 }

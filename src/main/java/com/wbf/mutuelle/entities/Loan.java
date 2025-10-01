@@ -1,4 +1,4 @@
-package com.wbf.mutuelle.entities;
+/*package com.wbf.mutuelle.entities;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -105,6 +105,60 @@ public class Loan {
     }
 
     public void setIsRepaid(boolean b) {
+        this.isRepaid = isRepaid;
+    }
+}
+*/
+
+package com.wbf.mutuelle.entities;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+@Setter
+@Getter
+@NoArgsConstructor
+@Entity
+@Table(name = "loan")
+public class Loan {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private BigDecimal amount;
+    private Integer duration;
+
+    @Temporal(TemporalType.DATE)
+    private Date beginDate;
+
+    @Temporal(TemporalType.DATE)
+    private Date endDate;
+
+    private BigDecimal repaymentAmount;
+    private BigDecimal interestRate = new BigDecimal("5.0");
+
+    @Column(name = "is_repaid")
+    private Boolean isRepaid = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    private Member member;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "loan_request_id")
+    private LoanRequest loanRequest;
+
+    public Boolean getIsRepaid() {
+        return isRepaid;
+    }
+
+    public void setIsRepaid(Boolean isRepaid) {
         this.isRepaid = isRepaid;
     }
 }
