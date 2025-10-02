@@ -39,11 +39,71 @@ public class ContributionPeriod {
     public ContributionPeriod() {
     }
 
-    public ContributionPeriod(String name, BigDecimal individualAmount, Date startDate, Date endDate) {
+    public Long getId() {
+        return id;
+    }
+
+    public ContributionPeriod(Long id, String name, String description, BigDecimal individualAmount, Date startDate, Date endDate, boolean active) {
+        this.id = id;
         this.name = name;
+        this.description = description;
         this.individualAmount = individualAmount;
         this.startDate = startDate;
         this.endDate = endDate;
-        this.active = true;
+        this.active = active;
     }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public BigDecimal getIndividualAmount() {
+        return individualAmount;
+    }
+
+    public void setIndividualAmount(BigDecimal individualAmount) {
+        this.individualAmount = individualAmount;
+    }
+
+    public Date getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(Date startDate) {
+        this.startDate = startDate;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+
 }
