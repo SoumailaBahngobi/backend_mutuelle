@@ -1,8 +1,10 @@
 package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.entities.Contribution;
+import com.wbf.mutuelle.entities.ContributionPeriod;
 import com.wbf.mutuelle.entities.ContributionType;
 import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.repositories.ContributionPeriodRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
 import com.wbf.mutuelle.services.ContributionService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class ContributionController {
 
     private final ContributionService contributionService;
     private final MemberRepository memberRepository;
+    private final ContributionPeriodRepository contributionPeriodRepository;
     private final String UPLOAD_DIR = "./uploads/payment-proofs/";
 
     // =============================================
@@ -153,38 +156,51 @@ public class ContributionController {
     }
 
     @PostMapping("/group")
-    public ResponseEntity<?> createGroupContribution(@RequestBody Contribution contribution,
+    public ResponseEntity<?> createGroupContribution(@RequestBody GroupContributionRequest request,
                                                      @AuthenticationPrincipal UserDetails userDetails) {
         try {
             Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
 
-            contribution.setContributionType(ContributionType.GROUP);
-
-            if (contribution.getMembers() == null) {
-                contribution.setMembers(new ArrayList<>());
-            }
-
-            boolean connectedMemberInList = contribution.getMembers().stream()
-                    .anyMatch(m -> m.getId() != null && m.getId().equals(connectedMember.getId()));
-
-            if (!connectedMemberInList) {
-                Member memberRef = new Member();
-                memberRef.setId(connectedMember.getId());
-                contribution.getMembers().add(memberRef);
-            }
-
-            if (contribution.getMembers().size() < 2) {
+            // Vérifier qu'il y a au moins 2 membres
+            if (request.getMemberIds() == null || request.getMemberIds().size() < 2) {
                 throw new RuntimeException("Une cotisation groupée doit concerner au moins 2 membres !");
             }
 
-            Contribution createdContribution = contributionService.createContribution(contribution);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdContribution);
+            // Récupérer la période de cotisation depuis la base de données
+            ContributionPeriod contributionPeriod = contributionPeriodRepository.findById(request.getContributionPeriodId())
+                    .orElseThrow(() -> new RuntimeException("Période de cotisation non trouvée avec ID: " + request.getContributionPeriodId()));
+
+            // Créer une cotisation INDIVIDUELLE pour chaque membre
+            List<Contribution> createdContributions = new ArrayList<>();
+            String groupReference = "GROUP_" + System.currentTimeMillis();
+
+            for (Long memberId : request.getMemberIds()) {
+                Member member = memberRepository.findById(memberId)
+                        .orElseThrow(() -> new RuntimeException("Membre non trouvé avec ID: " + memberId));
+
+                // Créer une nouvelle cotisation individuelle pour chaque membre
+                Contribution individualContribution = new Contribution();
+                individualContribution.setAmount(request.getAmount());
+                
+                // individualContribution.setPaymentDate(request.getPaymentDate());
+                individualContribution.setPaymentMode(request.getPaymentMode());
+                individualContribution.setPaymentProof(request.getPaymentProof());
+                individualContribution.setContributionPeriod(contributionPeriod);
+                individualContribution.setContributionType(ContributionType.INDIVIDUAL);
+                individualContribution.setMember(member);
+
+                Contribution created = contributionService.createContribution(individualContribution);
+                createdContributions.add(created);
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdContributions);
 
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur");
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur: " + e.getMessage());
         }
     }
 
@@ -205,6 +221,7 @@ public class ContributionController {
     @GetMapping("/group")
     public ResponseEntity<List<Contribution>> getGroupContributions() {
         try {
+            // Retourner les cotisations groupées normales (ancienne méthode)
             List<Contribution> contributions = contributionService.getContributionsByType(ContributionType.GROUP);
             return ResponseEntity.ok(contributions);
         } catch (Exception e) {
@@ -327,5 +344,37 @@ public class ContributionController {
         public BigDecimal getTotalAmount() { return totalAmount; }
         public BigDecimal getIndividualAmount() { return individualAmount; }
         public BigDecimal getGroupAmount() { return groupAmount; }
+    }
+
+    // =============================================
+    // DTO POUR COTISATIONS GROUPÉES
+    // =============================================
+
+    public static class GroupContributionRequest {
+        private BigDecimal amount;
+        private String paymentDate;
+        private String paymentMode;
+        private String paymentProof;
+        private Long contributionPeriodId;
+        private List<Long> memberIds;
+
+        // Getters et Setters
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+        public String getPaymentDate() { return paymentDate; }
+        public void setPaymentDate(String paymentDate) { this.paymentDate = paymentDate; }
+
+        public String getPaymentMode() { return paymentMode; }
+        public void setPaymentMode(String paymentMode) { this.paymentMode = paymentMode; }
+
+        public String getPaymentProof() { return paymentProof; }
+        public void setPaymentProof(String paymentProof) { this.paymentProof = paymentProof; }
+
+        public Long getContributionPeriodId() { return contributionPeriodId; }
+        public void setContributionPeriodId(Long contributionPeriodId) { this.contributionPeriodId = contributionPeriodId; }
+
+        public List<Long> getMemberIds() { return memberIds; }
+        public void setMemberIds(List<Long> memberIds) { this.memberIds = memberIds; }
     }
 }

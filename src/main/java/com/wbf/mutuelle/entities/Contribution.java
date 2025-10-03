@@ -44,6 +44,78 @@ public class Contribution {
         this.paymentProof = paymentProof;
     }
 
+    public Member getMember() {
+        return member;
+    }
+
+    public void setMember(Member member) {
+        this.member = member;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public ContributionType getContributionType() {
+        return contributionType;
+    }
+
+    public void setContributionType(ContributionType contributionType) {
+        this.contributionType = contributionType;
+    }
+
+    public Date getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(Date paymentDate) {
+        this.paymentDate = paymentDate;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getPaymentMode() {
+        return paymentMode;
+    }
+
+    public void setPaymentMode(String paymentMode) {
+        this.paymentMode = paymentMode;
+    }
+
+    public List<Member> getMembers() {
+        return members;
+    }
+
+    public void setMembers(List<Member> members) {
+        this.members = members;
+    }
+
+    public ContributionPeriod getContributionPeriod() {
+        return contributionPeriod;
+    }
+
+    public void setContributionPeriod(ContributionPeriod contributionPeriod) {
+        this.contributionPeriod = contributionPeriod;
+    }
+
+    public BigDecimal getBalance() {
+        return balance;
+    }
+
+    public void setBalance(BigDecimal balance) {
+        this.balance = balance;
+    }
+
     // Cas INDIVIDUELLE
     @ManyToOne
     @JoinColumn(name = "member_id")
