@@ -65,7 +65,7 @@ public class LoanService {
         loan.setBeginDate(new Date());
         loan.setEndDate(endDate);
         loan.setRepaymentAmount(repaymentAmount);
-        loan.setInterestRate(loanRequest.getInterestRate());
+       // loan.setInterestRate(loanRequest.getInterestRate());
         loan.setMember(loanRequest.getMember());
         loan.setLoanRequest(loanRequest);
         loan.setIsRepaid(false);
@@ -135,7 +135,7 @@ public class LoanService {
             loan.setDuration(loanDetails.getDuration());
             // Recalculer la date de fin si la durée change
             loan.setEndDate(calculateEndDate(loanDetails.getDuration()));
-        }
+        }/*
         if (loanDetails.getInterestRate() != null) {
             loan.setInterestRate(loanDetails.getInterestRate());
             // Recalculer le montant de remboursement si le taux change
@@ -144,7 +144,7 @@ public class LoanService {
                     loanDetails.getInterestRate(),
                     loan.getDuration()
             ));
-        }
+        }*/
         if (loanDetails.getIsRepaid() != null) {
             loan.setIsRepaid(loanDetails.getIsRepaid());
         }

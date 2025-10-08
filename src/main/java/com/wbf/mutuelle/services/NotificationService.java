@@ -43,4 +43,12 @@ public class NotificationService {
     public void deleteNotification(Long id) {
         notificationRepository.deleteById(id);
     }
+
+    public void notifyLoanStatusChange(String memberEmail, String loanStatus, String details) {
+
+    }
+
+    public void notifyApprovalRequired(String role, Long loanRequestId) {
+        
+    }
 }

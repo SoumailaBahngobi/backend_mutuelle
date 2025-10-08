@@ -8,10 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class LoanRequestService {
@@ -137,6 +135,215 @@ public class LoanRequestService {
 
         return checkAndUpdateFinalStatus(request);
     }
+/*
+    private boolean hasRequiredRole(Member member, String requiredRole) {
+        return switch (requiredRole) {
+            case "PRESIDENT" -> member.isPresident() || member.isAdmin();
+            case "SECRETARY" -> member.isSecretary() || member.isAdmin();
+            case "TREASURER" -> member.isTreasurer() || member.isAdmin();
+            default -> false;
+        };
+    }
+
+    private LoanRequest checkAndUpdateFinalStatus(LoanRequest request) {
+        if (request.isFullyApproved()) {
+            request.setStatus("APPROVED");
+            createLoanFromRequest(request);
+        } else {
+            request.setStatus("IN_REVIEW");
+        }
+        return loanRequestRepository.save(request);
+    }
+
+    @Transactional
+    protected void createLoanFromRequest(LoanRequest request) {
+        Loan loan = new Loan();
+        loan.setAmount(request.getRequestAmount());
+        loan.setDuration(request.getDuration());
+        loan.setBeginDate(new Date());
+
+        // Calcul date de fin
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(new Date());
+        calendar.add(Calendar.MONTH, request.getDuration());
+        loan.setEndDate(calendar.getTime());
+
+
+        loan.setRepaymentAmount(request.getRequestAmount());
+        loan.setMember(request.getMember());
+        loan.setLoanRequest(request);
+        loan.setIsRepaid(false);
+
+        loanRepository.save(loan);
+    }
+
+    // Méthodes de consultation
+    public List<LoanRequest> getAllLoanRequests() {
+        return loanRequestRepository.findAll();
+    }
+
+    public Optional<LoanRequest> getLoanRequestById(Long id) {
+        return loanRequestRepository.findById(id);
+    }
+
+    public List<LoanRequest> getLoanRequestsByMemberId(Long memberId) {
+        return loanRequestRepository.findByMemberId(memberId);
+    }
+
+    public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+        return loanRequestRepository.findByMember(member);
+    }*/
+    public LoanRequest rejectLoanRequest(Long id) {
+        LoanRequest request = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+        request.setStatus("REJECTED");
+        return loanRequestRepository.save(request);
+    }
+
+/// //////
+ // Méthodes d'approbation avec commentaires
+    @Transactional
+    public LoanRequest approveByPresident(Long id, String comment) {
+        return approveLoanRequest(id, "PRESIDENT", comment);
+    }
+
+    @Transactional
+    public LoanRequest approveBySecretary(Long id, String comment) {
+        return approveLoanRequest(id, "SECRETARY", comment);
+    }
+
+    @Transactional
+    public LoanRequest approveByTreasurer(Long id, String comment) {
+        return approveLoanRequest(id, "TREASURER", comment);
+    }
+
+    private LoanRequest approveLoanRequest(Long id, String role, String comment) {
+        LoanRequest request = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+
+        // Vérifier le statut
+        if ("REJECTED".equals(request.getStatus())) {
+            throw new RuntimeException("Impossible d'approuver une demande rejetée");
+        }
+
+        if ("APPROVED".equals(request.getStatus())) {
+            throw new RuntimeException("Cette demande est déjà approuvée");
+        }
+
+        // Vérifier le rôle de l'utilisateur
+        Member currentUser = memberService.getCurrentMember(
+                SecurityContextHolder.getContext().getAuthentication().getName()
+        );
+
+        if (!hasRequiredRole(currentUser, role)) {
+            throw new RuntimeException("Seul le " + role.toLowerCase() + " ou l'admin peut approuver");
+        }
+
+        // Vérifier si l'utilisateur n'a pas déjà approuvé
+        if (hasAlreadyApproved(request, role)) {
+            throw new RuntimeException("Vous avez déjà approuvé cette demande");
+        }
+
+        // Mettre à jour l'approbation
+        switch (role) {
+            case "PRESIDENT" -> {
+                request.setPresidentApproved(true);
+                request.setPresidentApprovalDate(new Date());
+                request.setPresidentComment(comment);
+            }
+            case "SECRETARY" -> {
+                request.setSecretaryApproved(true);
+                request.setSecretaryApprovalDate(new Date());
+                request.setSecretaryComment(comment);
+            }
+            case "TREASURER" -> {
+                request.setTreasurerApproved(true);
+                request.setTreasurerApprovalDate(new Date());
+                request.setTreasurerComment(comment);
+            }
+        }
+
+        return checkAndUpdateFinalStatus(request);
+    }
+
+    private boolean hasAlreadyApproved(LoanRequest request, String role) {
+        return switch (role) {
+            case "PRESIDENT" -> Boolean.TRUE.equals(request.getPresidentApproved());
+            case "SECRETARY" -> Boolean.TRUE.equals(request.getSecretaryApproved());
+            case "TREASURER" -> Boolean.TRUE.equals(request.getTreasurerApproved());
+            default -> false;
+        };
+    }
+
+    // Méthode de rejet améliorée
+    @Transactional
+    public LoanRequest rejectLoanRequest(Long id, String rejectionReason, String rejectedByRole) {
+        LoanRequest request = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+
+        if ("APPROVED".equals(request.getStatus())) {
+            throw new RuntimeException("Impossible de rejeter une demande déjà approuvée");
+        }
+
+        // Vérifier le rôle de l'utilisateur
+        Member currentUser = memberService.getCurrentMember(
+                SecurityContextHolder.getContext().getAuthentication().getName()
+        );
+
+        if (!hasRequiredRole(currentUser, rejectedByRole)) {
+            throw new RuntimeException("Vous n'avez pas les droits pour rejeter cette demande");
+        }
+
+        request.setStatus("REJECTED");
+        request.setRejectionReason(rejectionReason);
+
+        return loanRequestRepository.save(request);
+    }
+
+    // Méthode pour réinitialiser une approbation (admin seulement)
+    @Transactional
+    public LoanRequest resetApproval(Long id, String role) {
+        LoanRequest request = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+
+        // Vérifier si l'utilisateur est admin
+        Member currentUser = memberService.getCurrentMember(
+                SecurityContextHolder.getContext().getAuthentication().getName()
+        );
+
+        if (!currentUser.isAdmin()) {
+            throw new RuntimeException("Seul l'administrateur peut réinitialiser les approbations");
+        }
+
+        switch (role) {
+            case "PRESIDENT" -> {
+                request.setPresidentApproved(false);
+                request.setPresidentApprovalDate(null);
+                request.setPresidentComment(null);
+            }
+            case "SECRETARY" -> {
+                request.setSecretaryApproved(false);
+                request.setSecretaryApprovalDate(null);
+                request.setSecretaryComment(null);
+            }
+            case "TREASURER" -> {
+                request.setTreasurerApproved(false);
+                request.setTreasurerApprovalDate(null);
+                request.setTreasurerComment(null);
+            }
+        }
+
+        // Revenir au statut "IN_REVIEW" si la demande était partiellement approuvée
+        if (request.hasAnyApproval()) {
+            request.setStatus("IN_REVIEW");
+        } else {
+            request.setStatus("PENDING");
+        }
+
+        return loanRequestRepository.save(request);
+    }
 
     private boolean hasRequiredRole(Member member, String requiredRole) {
         return switch (requiredRole) {
@@ -170,12 +377,11 @@ public class LoanRequestService {
         calendar.add(Calendar.MONTH, request.getDuration());
         loan.setEndDate(calendar.getTime());
 
-        // Calcul intérêts 5%
+        // Calcul intérêts
         BigDecimal interest = request.getRequestAmount()
                 .multiply(request.getInterestRate())
                 .divide(new BigDecimal("100"));
         loan.setRepaymentAmount(request.getRequestAmount().add(interest));
-        loan.setInterestRate(request.getInterestRate());
         loan.setMember(request.getMember());
         loan.setLoanRequest(request);
         loan.setIsRepaid(false);
@@ -183,7 +389,24 @@ public class LoanRequestService {
         loanRepository.save(loan);
     }
 
-    // Méthodes de consultation
+    // Méthodes de consultation améliorées
+    public List<LoanRequest> getPendingRequests() {
+        return loanRequestRepository.findByStatus("PENDING");
+    }
+
+    public List<LoanRequest> getInReviewRequests() {
+        return loanRequestRepository.findByStatus("IN_REVIEW");
+    }
+
+    public List<LoanRequest> getApprovedRequests() {
+        return loanRequestRepository.findByStatus("APPROVED");
+    }
+
+    public List<LoanRequest> getRejectedRequests() {
+        return loanRequestRepository.findByStatus("REJECTED");
+    }
+
+    // Méthodes existantes...
     public List<LoanRequest> getAllLoanRequests() {
         return loanRequestRepository.findAll();
     }
@@ -201,10 +424,71 @@ public class LoanRequestService {
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
         return loanRequestRepository.findByMember(member);
     }
-    public LoanRequest rejectLoanRequest(Long id) {
-        LoanRequest request = loanRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
-        request.setStatus("REJECTED");
-        return loanRequestRepository.save(request);
+
+    public Map<String, Object> getValidatorDashboard(String userEmail) {
+        Member currentUser = memberService.getCurrentMember(userEmail);
+
+        List<LoanRequest> pendingRequests = getPendingRequests();
+        List<LoanRequest> inReviewRequests = getInReviewRequests();
+        List<LoanRequest> myPendingApprovals = getPendingApprovalsForCurrentUser(userEmail);
+
+        return Map.of(
+                "userRole", memberService.getUserRole(currentUser),
+                "pendingRequestsCount", pendingRequests.size(),
+                "inReviewRequestsCount", inReviewRequests.size(),
+                "myPendingApprovals", myPendingApprovals,
+                "statistics", getValidationStatistics()
+        );
     }
+
+    public List<LoanRequest> getPendingApprovalsForCurrentUser(String userEmail) {
+        Member currentUser = memberService.getCurrentMember(userEmail);
+        List<LoanRequest> allPending = getPendingRequests();
+        List<LoanRequest> inReview = getInReviewRequests();
+
+        // Fusionner les listes
+        allPending.addAll(inReview);
+
+        // Filtrer selon le rôle
+        return allPending.stream()
+                .filter(request -> needsApprovalFromUser(request, currentUser))
+                .collect(Collectors.toList());
+    }
+
+    private boolean needsApprovalFromUser(LoanRequest request, Member user) {
+        if (user.isPresident() && !Boolean.TRUE.equals(request.getPresidentApproved())) {
+            return true;
+        }
+        if (user.isSecretary() && !Boolean.TRUE.equals(request.getSecretaryApproved())) {
+            return true;
+        }
+        if (user.isTreasurer() && !Boolean.TRUE.equals(request.getTreasurerApproved())) {
+            return true;
+        }
+        return false;
+    }
+
+    private Map<String, Object> getValidationStatistics() {
+        List<LoanRequest> allRequests = getAllLoanRequests();
+
+        long total = allRequests.size();
+        long approved = allRequests.stream().filter(r -> "APPROVED".equals(r.getStatus())).count();
+        long rejected = allRequests.stream().filter(r -> "REJECTED".equals(r.getStatus())).count();
+        long pending = allRequests.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
+        long inReview = allRequests.stream().filter(r -> "IN_REVIEW".equals(r.getStatus())).count();
+
+        return Map.of(
+                "total", total,
+                "approved", approved,
+                "rejected", rejected,
+                "pending", pending,
+                "inReview", inReview,
+                "approvalRate", total > 0 ? (double) approved / total * 100 : 0
+        );
+    }
+
 }
+
+
+
+

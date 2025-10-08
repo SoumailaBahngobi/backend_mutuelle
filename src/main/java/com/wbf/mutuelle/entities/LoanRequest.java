@@ -52,6 +52,29 @@ public class LoanRequest {
     @Column(name = "treasurer_approved")
     private Boolean treasurerApproved = false;
 
+    // Dates d'approbation
+    @Column(name = "president_approval_date")
+    private Date presidentApprovalDate;
+
+    @Column(name = "secretary_approval_date")
+    private Date secretaryApprovalDate;
+
+    @Column(name = "treasurer_approval_date")
+    private Date treasurerApprovalDate;
+
+    // Commentaires des validateurs
+    @Column(name = "president_comment")
+    private String presidentComment;
+
+    @Column(name = "secretary_comment")
+    private String secretaryComment;
+
+    @Column(name = "treasurer_comment")
+    private String treasurerComment;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
     @Column(name = "interest_rate")
     private BigDecimal interestRate = new BigDecimal("5.0");
 
@@ -59,10 +82,25 @@ public class LoanRequest {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
+    // Méthodes utilitaires
     public Boolean isFullyApproved() {
         return Boolean.TRUE.equals(presidentApproved) &&
                 Boolean.TRUE.equals(secretaryApproved) &&
                 Boolean.TRUE.equals(treasurerApproved);
+    }
+
+    public Boolean hasAnyApproval() {
+        return Boolean.TRUE.equals(presidentApproved) ||
+                Boolean.TRUE.equals(secretaryApproved) ||
+                Boolean.TRUE.equals(treasurerApproved);
+    }
+
+    public String getApprovalProgress() {
+        int approved = 0;
+        if (Boolean.TRUE.equals(presidentApproved)) approved++;
+        if (Boolean.TRUE.equals(secretaryApproved)) approved++;
+        if (Boolean.TRUE.equals(treasurerApproved)) approved++;
+        return approved + "/3";
     }
 
     public Boolean getIsRepaid() {

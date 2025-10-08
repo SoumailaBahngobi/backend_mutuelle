@@ -8,6 +8,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+@CrossOrigin(origins = "*", maxAge = 3000)
 
 @RestController
 @RequestMapping("/mut/loan_request")
@@ -81,7 +83,7 @@ public class LoanRequestController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-
+/*
     @PostMapping("/{id}/reject")
     public ResponseEntity<?> rejectLoanRequest(@PathVariable Long id) {
         try {
@@ -90,5 +92,93 @@ public class LoanRequestController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }*/
+
+    //endpoint pour les approbations
+
+    /*@PostMapping("/{id}/approve/president")
+    public ResponseEntity<?> approveByPresident(@PathVariable Long id,
+                                                @RequestBody Map<String, String> request) {
+        try {
+            String comment = request.get("comment");
+            LoanRequest approvedRequest = loanRequestService.approveByPresident(id, comment);
+            return ResponseEntity.ok(approvedRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
+*/
+   /* @PostMapping("/{id}/approve/secretary")
+    public ResponseEntity<?> approveBySecretary(@PathVariable Long id,
+                                                @RequestBody Map<String, String> request) {
+        try {
+            String comment = request.get("comment");
+            LoanRequest approvedRequest = loanRequestService.approveBySecretary(id, comment);
+            return ResponseEntity.ok(approvedRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }*/
+/*
+    @PostMapping("/{id}/approve/treasurer")
+    public ResponseEntity<?> approveByTreasurer(@PathVariable Long id,
+                                                @RequestBody Map<String, String> request) {
+        try {
+            String comment = request.get("comment");
+            LoanRequest approvedRequest = loanRequestService.approveByTreasurer(id, comment);
+            return ResponseEntity.ok(approvedRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }*/
+
+    // Endpoint de rejet avec raison
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<?> rejectLoanRequest(@PathVariable Long id,
+                                               @RequestBody Map<String, String> request) {
+        try {
+            String rejectionReason = request.get("rejectionReason");
+            String rejectedByRole = request.get("rejectedByRole"); // PRESIDENT, SECRETARY, TREASURER
+            LoanRequest rejectedRequest = loanRequestService.rejectLoanRequest(id, rejectionReason, rejectedByRole);
+            return ResponseEntity.ok(rejectedRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Endpoint pour réinitialiser une approbation (admin seulement)
+    @PostMapping("/{id}/reset-approval")
+    public ResponseEntity<?> resetApproval(@PathVariable Long id,
+                                           @RequestBody Map<String, String> request) {
+        try {
+            String role = request.get("role"); // PRESIDENT, SECRETARY, TREASURER
+            LoanRequest updatedRequest = loanRequestService.resetApproval(id, role);
+            return ResponseEntity.ok(updatedRequest);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Endpoints de consultation par statut
+    @GetMapping("/status/pending")
+    public List<LoanRequest> getPendingRequests() {
+        return loanRequestService.getPendingRequests();
+    }
+
+    @GetMapping("/status/in-review")
+    public List<LoanRequest> getInReviewRequests() {
+        return loanRequestService.getInReviewRequests();
+    }
+
+    @GetMapping("/status/approved")
+    public List<LoanRequest> getApprovedRequests() {
+        return loanRequestService.getApprovedRequests();
+    }
+
+    @GetMapping("/status/rejected")
+    public List<LoanRequest> getRejectedRequests() {
+        return loanRequestService.getRejectedRequests();
+    }
+
+
 }

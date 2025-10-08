@@ -82,4 +82,12 @@ public class MemberService {
    public Optional<Member> getMemberByEmail(String email) {
         return memberRepository.findByEmail(email);
     }
+
+    public String getUserRole(Member member) {
+        if (member.isPresident()) return "PRESIDENT";
+        if (member.isSecretary()) return "SECRETARY";
+        if (member.isTreasurer()) return "TREASURER";
+        if (member.isAdmin()) return "ADMIN";
+        return "MEMBER";
+    }
 }

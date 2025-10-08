@@ -141,7 +141,6 @@ public class Loan {
     private Date endDate;
 
     private BigDecimal repaymentAmount;
-    private BigDecimal interestRate = new BigDecimal("5.0");
 
     @Column(name = "is_repaid")
     private Boolean isRepaid = false;
