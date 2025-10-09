@@ -67,10 +67,6 @@ public class Member {
         this.loans = new ArrayList<>();
     }
 
-    public boolean isSubscriptionActive() {
-        return "ACTIVE".equals(subscriptionStatus) && Boolean.TRUE.equals(isRegular);
-    }
-
     public boolean canRequestLoan() {
         return isSubscriptionActive() &&
                 !Boolean.TRUE.equals(hasPreviousDebt) &&
@@ -78,12 +74,15 @@ public class Member {
     }
 
     private boolean hasNoActiveLoans() {
-        // Vérification sécurisée
         if (loans == null || loans.isEmpty()) {
             return true;
         }
         return loans.stream()
                 .noneMatch(loan -> loan != null && !loan.getIsRepaid());
+    }
+
+    public boolean isSubscriptionActive() {
+        return "ACTIVE".equals(subscriptionStatus) && Boolean.TRUE.equals(isRegular);
     }
 
     public boolean isPresident() {

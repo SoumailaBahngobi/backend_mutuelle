@@ -1,5 +1,6 @@
 package com.wbf.mutuelle.controllers;
 
+import com.wbf.mutuelle.dto.ApprovalRequest;
 import com.wbf.mutuelle.entities.LoanRequest;
 import com.wbf.mutuelle.services.LoanRequestService;
 import org.springframework.http.ResponseEntity;
@@ -9,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-@CrossOrigin(origins = "*", maxAge = 3000)
 
+@CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
 @RequestMapping("/mut/loan_request")
 public class LoanRequestController {
@@ -54,10 +55,12 @@ public class LoanRequestController {
         }
     }
 
+    // Endpoints d'approbation AVEC commentaire (version recommandée)
     @PostMapping("/{id}/approve/president")
-    public ResponseEntity<?> approveByPresident(@PathVariable Long id) {
+    public ResponseEntity<?> approveByPresident(@PathVariable Long id,
+                                                @RequestBody ApprovalRequest approvalRequest) {
         try {
-            LoanRequest approvedRequest = loanRequestService.approveByPresident(id);
+            LoanRequest approvedRequest = loanRequestService.approveByPresident(id, approvalRequest.getComment());
             return ResponseEntity.ok(approvedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -65,72 +68,26 @@ public class LoanRequestController {
     }
 
     @PostMapping("/{id}/approve/secretary")
-    public ResponseEntity<?> approveBySecretary(@PathVariable Long id) {
-        try {
-            LoanRequest approvedRequest = loanRequestService.approveBySecretary(id);
-            return ResponseEntity.ok(approvedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/{id}/approve/treasurer")
-    public ResponseEntity<?> approveByTreasurer(@PathVariable Long id) {
-        try {
-            LoanRequest approvedRequest = loanRequestService.approveByTreasurer(id);
-            return ResponseEntity.ok(approvedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-/*
-    @PostMapping("/{id}/reject")
-    public ResponseEntity<?> rejectLoanRequest(@PathVariable Long id) {
-        try {
-            LoanRequest rejectedRequest = loanRequestService.rejectLoanRequest(id);
-            return ResponseEntity.ok(rejectedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }*/
-
-    //endpoint pour les approbations
-
-    /*@PostMapping("/{id}/approve/president")
-    public ResponseEntity<?> approveByPresident(@PathVariable Long id,
-                                                @RequestBody Map<String, String> request) {
-        try {
-            String comment = request.get("comment");
-            LoanRequest approvedRequest = loanRequestService.approveByPresident(id, comment);
-            return ResponseEntity.ok(approvedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-*/
-   /* @PostMapping("/{id}/approve/secretary")
     public ResponseEntity<?> approveBySecretary(@PathVariable Long id,
-                                                @RequestBody Map<String, String> request) {
+                                                @RequestBody ApprovalRequest approvalRequest) {
         try {
-            String comment = request.get("comment");
-            LoanRequest approvedRequest = loanRequestService.approveBySecretary(id, comment);
+            LoanRequest approvedRequest = loanRequestService.approveBySecretary(id, approvalRequest.getComment());
             return ResponseEntity.ok(approvedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
-    }*/
-/*
+    }
+
     @PostMapping("/{id}/approve/treasurer")
     public ResponseEntity<?> approveByTreasurer(@PathVariable Long id,
-                                                @RequestBody Map<String, String> request) {
+                                                @RequestBody ApprovalRequest approvalRequest) {
         try {
-            String comment = request.get("comment");
-            LoanRequest approvedRequest = loanRequestService.approveByTreasurer(id, comment);
+            LoanRequest approvedRequest = loanRequestService.approveByTreasurer(id, approvalRequest.getComment());
             return ResponseEntity.ok(approvedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
-    }*/
+    }
 
     // Endpoint de rejet avec raison
     @PostMapping("/{id}/reject")
@@ -179,6 +136,4 @@ public class LoanRequestController {
     public List<LoanRequest> getRejectedRequests() {
         return loanRequestService.getRejectedRequests();
     }
-
-
 }

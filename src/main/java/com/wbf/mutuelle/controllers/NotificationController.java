@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
 @RequestMapping("/mut/notification")
 @RequiredArgsConstructor

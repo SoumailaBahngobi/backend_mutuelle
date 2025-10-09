@@ -51,9 +51,11 @@ public class SecurityConfig {
                                 "/mut/admin/**",
                                 "/mut/event/**",
                                 "/mut/upload/**",
-                                "/mut/notification"
+                                "/mut/notification",
+                                "/mut/loan/**"
                         ).permitAll()
-                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER", "ADMIN")
+                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER", "ADMIN","PRESIDENT","TREASURER")
+                        .requestMatchers("/mut/loan_request/**","/mut/loan-validator/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
