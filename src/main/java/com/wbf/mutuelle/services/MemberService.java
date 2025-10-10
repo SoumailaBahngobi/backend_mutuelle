@@ -1,21 +1,27 @@
 package com.wbf.mutuelle.services;
 
+import com.wbf.mutuelle.entities.LoanRequest;
 import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final LoanRequestRepository loanRequestRepository;
 
-    public MemberService(MemberRepository memberRepository) {
+    public MemberService(MemberRepository memberRepository, LoanRequestRepository loanRequestRepository) {
         this.memberRepository = memberRepository;
+        this.loanRequestRepository = loanRequestRepository;
     }
 
     public List<Member> getAllMembers(){
@@ -30,12 +36,12 @@ public class MemberService {
         if (member.getIsRegular() == null) member.setIsRegular(false);
         if (member.getHasPreviousDebt() == null) member.setHasPreviousDebt(false);
         if (member.getSubscriptionStatus() == null) member.setSubscriptionStatus("PENDING");
-       return memberRepository.save(member);
+        return memberRepository.save(member);
     }
 
     public Member updateMember(Long id, Member memberDetails){
-     Member member = memberRepository.findById(id).orElseThrow();
-     member.setName(memberDetails.getName());
+        Member member = memberRepository.findById(id).orElseThrow();
+        member.setName(memberDetails.getName());
         member.setFirstName(memberDetails.getFirstName());
         member.setName(memberDetails.getName());
         member.setEmail(memberDetails.getEmail());
@@ -50,6 +56,7 @@ public class MemberService {
     public void deleteMember(Long id){
         memberRepository.deleteById(id);
     }
+
     @Transactional
     public Member updateSubscriptionStatus(Long memberId, Boolean isRegular, LocalDate subscriptionDate) {
         Member member = memberRepository.findById(memberId)
@@ -69,9 +76,37 @@ public class MemberService {
     }
 
     public boolean validateMemberForLoan(Long memberId) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
-        return member.canRequestLoan();
+        System.out.println("🔍 [DEBUG] validateMemberForLoan appelé pour memberId: " + memberId);
+
+        Optional<Member> memberOpt = memberRepository.findById(memberId);
+        if (memberOpt.isEmpty()) {
+            System.out.println("❌ [DEBUG] Membre non trouvé: " + memberId);
+            return false;
+        }
+
+        Member member = memberOpt.get();
+        System.out.println("👤 [DEBUG] Membre trouvé: " + member.getEmail() + " (ID: " + member.getId() + ")");
+
+        // APPROCHE ALTERNATIVE : Récupérer toutes les demandes et filtrer manuellement
+        List<LoanRequest> allMemberRequests = loanRequestRepository.findByMemberId(memberId);
+        System.out.println("📋 [DEBUG] Total demandes du membre: " + allMemberRequests.size());
+
+        List<LoanRequest> pendingRequests = allMemberRequests.stream()
+                .filter(request -> "PENDING".equals(request.getStatus()) || "IN_REVIEW".equals(request.getStatus()))
+                .collect(Collectors.toList());
+
+        System.out.println("⏳ [DEBUG] Demandes PENDING/IN_REVIEW: " + pendingRequests.size());
+
+        for (LoanRequest request : pendingRequests) {
+            System.out.println("   - Demande ID: " + request.getId() +
+                    ", Statut: " + request.getStatus() +
+                    ", Montant: " + request.getRequestAmount());
+        }
+
+        boolean isEligible = pendingRequests.isEmpty();
+        System.out.println("✅ [DEBUG] Résultat éligibilité: " + isEligible);
+
+        return isEligible;
     }
 
     public Member getCurrentMember(String email) {
@@ -79,7 +114,7 @@ public class MemberService {
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
     }
 
-   public Optional<Member> getMemberByEmail(String email) {
+    public Optional<Member> getMemberByEmail(String email) {
         return memberRepository.findByEmail(email);
     }
 

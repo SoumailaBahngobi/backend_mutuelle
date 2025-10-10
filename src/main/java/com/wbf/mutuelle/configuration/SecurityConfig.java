@@ -52,9 +52,9 @@ public class SecurityConfig {
                                 "/mut/event/**",
                                 "/mut/upload/**",
                                 "/mut/notification",
-                                "/mut/loan/**"
+                                "/mut/loans/**"
                         ).permitAll()
-                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER", "ADMIN","PRESIDENT","TREASURER")
+                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER","SECRETARY", "ADMIN","PRESIDENT","TREASURER")
                         .requestMatchers("/mut/loan_request/**","/mut/loan-validator/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .anyRequest().authenticated()
                 )

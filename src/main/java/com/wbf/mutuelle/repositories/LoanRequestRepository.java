@@ -40,6 +40,7 @@ public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
     List<LoanRequest> findActiveRequests();
 
     List<LoanRequest> findByMemberEmail(String email);
+    List<LoanRequest> findByMemberIdAndStatusIn(Long memberId, List<String> statuses);
 
 
 }

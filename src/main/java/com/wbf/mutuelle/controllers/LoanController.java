@@ -38,9 +38,8 @@ public class LoanController {
         return ResponseEntity.ok(loans);
     }
 
-    /**
-     * Récupérer un prêt par son ID
-     */
+     // Récupérer un prêt par son ID
+
     @GetMapping("/{id}")
     public ResponseEntity<Loan> getLoanById(@PathVariable Long id) {
         Optional<Loan> loan = loanService.getLoanById(id);
@@ -48,9 +47,8 @@ public class LoanController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Récupérer les prêts d'un membre
-     */
+     // Récupérer les prêts d'un membre
+
     @GetMapping("/member/{memberId}")
     public ResponseEntity<List<Loan>> getLoansByMember(@PathVariable Long memberId) {
         try {

@@ -105,4 +105,5 @@ public class MemberController {
             return ResponseEntity.badRequest().body(false);
         }
     }
+    
 }

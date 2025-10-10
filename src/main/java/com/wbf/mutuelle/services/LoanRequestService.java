@@ -21,6 +21,7 @@ public class LoanRequestService {
 
     private final LoanRequestRepository loanRequestRepository;
     private final MemberRepository memberRepository;
+    private final MemberService memberService;
 
     public List<LoanRequest> getAllLoanRequests() {
         return loanRequestRepository.findAll();
@@ -43,9 +44,9 @@ public class LoanRequestService {
         Member member = memberRepository.findByEmail(memberEmail)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
-        // Vérifier si le membre peut faire une demande de prêt
-        if (!member.canRequestLoan()) {
-            throw new RuntimeException("Le membre n'est pas éligible pour un prêt");
+        // CORRECTION : Utiliser MemberService pour vérifier l'éligibilité
+        if (!memberService.validateMemberForLoan(member.getId())) {
+            throw new RuntimeException("Vous avez déjà une ou plusieurs demandes de prêt en attente de validation. Veuillez attendre leur traitement avant de soumettre une nouvelle demande.");
         }
 
         loanRequest.setMember(member);
@@ -238,7 +239,6 @@ public class LoanRequestService {
                 .collect(Collectors.toList());
     }
 
-
     @Transactional
     public LoanRequest approveByPresident(Long loanRequestId, String comment) {
         return approveLoanRequest(loanRequestId, Role.PRESIDENT, comment);
@@ -287,15 +287,10 @@ public class LoanRequestService {
         // Mettre à jour le statut
         if (loanRequest.isFullyApproved()) {
             loanRequest.setStatus("APPROVED");
-            // Ici vous pouvez automatiquement créer le prêt
-            // createLoanFromRequest(loanRequest);
         } else {
             loanRequest.setStatus("IN_REVIEW");
         }
 
         return loanRequestRepository.save(loanRequest);
     }
-/// ///
-
-
 }
