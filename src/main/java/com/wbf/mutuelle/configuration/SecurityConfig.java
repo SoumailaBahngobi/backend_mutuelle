@@ -55,7 +55,10 @@ public class SecurityConfig {
                                 "/mut/loans/**"
                         ).permitAll()
                         .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER","SECRETARY", "ADMIN","PRESIDENT","TREASURER")
-                        .requestMatchers("/mut/loan_request/**","/mut/loan-validator/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        .requestMatchers("/mut/loan_request/approval/**", "/mut/loan_request/status/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        .requestMatchers("/mut/loan_request/all-with-approval", "/mut/loan_request/my-pending-approvals",
+                                "/mut/loan_request/validator-dashboard", "/mut/loan_request/*/approval-status")
+                        .hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

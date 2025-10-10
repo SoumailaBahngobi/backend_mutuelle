@@ -136,4 +136,30 @@ public class LoanRequestController {
     public List<LoanRequest> getRejectedRequests() {
         return loanRequestService.getRejectedRequests();
     }
+
+    // NOUVEAUX ENDPOINTS POUR LES RESPONSABLES
+    @GetMapping("/all-with-approval")
+    public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
+        return loanRequestService.getAllLoanRequestsWithApprovalDetails();
+    }
+
+    @GetMapping("/my-pending-approvals")
+    public List<LoanRequest> getMyPendingApprovals(@AuthenticationPrincipal UserDetails userDetails) {
+        return loanRequestService.getPendingApprovalsForCurrentUser(userDetails.getUsername());
+    }
+
+    @GetMapping("/validator-dashboard")
+    public Map<String, Object> getValidatorDashboard(@AuthenticationPrincipal UserDetails userDetails) {
+        return loanRequestService.getValidatorDashboard(userDetails.getUsername());
+    }
+
+    @GetMapping("/{id}/approval-status")
+    public ResponseEntity<Map<String, Object>> getLoanRequestApprovalStatus(@PathVariable Long id) {
+        try {
+            Map<String, Object> approvalStatus = loanRequestService.getLoanRequestApprovalStatus(id);
+            return ResponseEntity.ok(approvalStatus);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Map;
 
 @Setter
 @Getter
@@ -109,5 +110,12 @@ public class LoanRequest {
 
     public void setIsRepaid(Boolean isRepaid) {
         this.isRepaid = isRepaid;
+    }
+
+    @Transient
+    private Map<String, Object> approvalProgress;
+
+    public void setApprovalProgress(Map<String, Object> approvalProgress) {
+        this.approvalProgress = approvalProgress;
     }
 }

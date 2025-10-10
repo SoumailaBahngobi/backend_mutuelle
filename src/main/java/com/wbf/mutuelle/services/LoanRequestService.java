@@ -9,10 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,7 +24,7 @@ public class LoanRequestService {
         return loanRequestRepository.findAll();
     }
 
-    public java.util.Optional<LoanRequest> getLoanRequestById(Long id) {
+    public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
     }
 
@@ -292,5 +289,86 @@ public class LoanRequestService {
         }
 
         return loanRequestRepository.save(loanRequest);
+    }
+
+    // NOUVELLES METHODES POUR LES RESPONSABLES
+    public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
+        return loanRequestRepository.findAll().stream()
+                .map(this::enrichWithApprovalDetails)
+                .collect(Collectors.toList());
+    }
+
+    private LoanRequest enrichWithApprovalDetails(LoanRequest loanRequest) {
+        // Ajouter des informations calculées sur l'état d'approbation
+        loanRequest.setApprovalProgress(calculateApprovalProgress(loanRequest));
+        return loanRequest;
+    }
+
+    private Map<String, Object> calculateApprovalProgress(LoanRequest loanRequest) {
+        Map<String, Object> progress = new HashMap<>();
+
+        // Statut des approbations
+        progress.put("presidentApproved", loanRequest.getPresidentApproved());
+        progress.put("secretaryApproved", loanRequest.getSecretaryApproved());
+        progress.put("treasurerApproved", loanRequest.getTreasurerApproved());
+
+        // Pourcentage d'approbation
+        int approvedCount = 0;
+        if (loanRequest.getPresidentApproved()) approvedCount++;
+        if (loanRequest.getSecretaryApproved()) approvedCount++;
+        if (loanRequest.getTreasurerApproved()) approvedCount++;
+
+        progress.put("approvalPercentage", (approvedCount * 100) / 3);
+        progress.put("approvedCount", approvedCount);
+        progress.put("totalApprovers", 3);
+
+        // Prochain approbateur requis
+        List<String> pendingApprovers = new ArrayList<>();
+        if (!loanRequest.getPresidentApproved()) pendingApprovers.add("PRESIDENT");
+        if (!loanRequest.getSecretaryApproved()) pendingApprovers.add("SECRETARY");
+        if (!loanRequest.getTreasurerApproved()) pendingApprovers.add("TREASURER");
+
+        progress.put("pendingApprovers", pendingApprovers);
+        progress.put("nextApprover", pendingApprovers.isEmpty() ? "COMPLETED" : pendingApprovers.get(0));
+
+        return progress;
+    }
+
+    public Map<String, Object> getLoanRequestApprovalStatus(Long loanRequestId) {
+        LoanRequest loanRequest = loanRequestRepository.findById(loanRequestId)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+
+        Map<String, Object> status = new HashMap<>();
+        status.put("loanRequest", loanRequest);
+        status.put("approvalProgress", calculateApprovalProgress(loanRequest));
+        status.put("currentStatus", loanRequest.getStatus());
+
+        // Détails des approbations
+        Map<String, Object> approvalDetails = new HashMap<>();
+
+        // Président
+        approvalDetails.put("president", Map.of(
+                "approved", loanRequest.getPresidentApproved(),
+                "approvalDate", loanRequest.getPresidentApprovalDate(),
+                "comment", loanRequest.getPresidentComment()
+        ));
+
+        // Secrétaire
+        approvalDetails.put("secretary", Map.of(
+                "approved", loanRequest.getSecretaryApproved(),
+                "approvalDate", loanRequest.getSecretaryApprovalDate(),
+                "comment", loanRequest.getSecretaryComment()
+        ));
+
+        // Trésorier
+        approvalDetails.put("treasurer", Map.of(
+                "approved", loanRequest.getTreasurerApproved(),
+                "approvalDate", loanRequest.getTreasurerApprovalDate(),
+                "comment", loanRequest.getTreasurerComment()
+        ));
+
+        status.put("approvalDetails", approvalDetails);
+
+        return status;
     }
 }
