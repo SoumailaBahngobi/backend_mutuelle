@@ -371,4 +371,84 @@ public class LoanRequestService {
 
         return status;
     }
+    //voir toutes les dd pret val et non val
+
+    public List<LoanRequest> getAllLoanRequestsWithFilters(String status, Long memberId) {
+        if (status != null && memberId != null) {
+            return loanRequestRepository.findAllWithFilters(status, memberId);
+        } else if (status != null) {
+            return loanRequestRepository.findByStatus(status);
+        } else if (memberId != null) {
+            return loanRequestRepository.findByMemberId(memberId);
+        } else {
+            return loanRequestRepository.findAll();
+        }
+    }
+
+    public Map<String, Object> getCompleteValidatorDashboard(String userEmail) {
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+
+        Map<String, Object> dashboard = new HashMap<>();
+
+        dashboard.put("totalRequests", loanRequestRepository.count());
+        dashboard.put("pendingRequests", getPendingRequests().size());
+        dashboard.put("inReviewRequests", getInReviewRequests().size());
+        dashboard.put("approvedRequests", getApprovedRequests().size());
+        dashboard.put("rejectedRequests", getRejectedRequests().size());
+
+        dashboard.put("allRequests", getAllLoanRequestsWithApprovalDetails());
+
+        // Demandes en attente de validation par l'utilisateur
+        dashboard.put("myPendingApprovals", getPendingApprovalsForCurrentUser(userEmail));
+
+        // Demandes selon le statut pour affichage filtré
+        dashboard.put("pendingList", getPendingRequests());
+        dashboard.put("inReviewList", getInReviewRequests());
+        dashboard.put("approvedList", getApprovedRequests());
+        dashboard.put("rejectedList", getRejectedRequests());
+
+        return dashboard;
+    }
+
+    public List<LoanRequest> getValidationHistoryByUser(String userEmail) {
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+
+        List<LoanRequest> allRequests = loanRequestRepository.findAll();
+
+        return allRequests.stream()
+                .filter(request -> {
+                    if (member.isPresident() && request.getPresidentApprovalDate() != null) {
+                        return true;
+                    }
+                    if (member.isSecretary() && request.getSecretaryApprovalDate() != null) {
+                        return true;
+                    }
+                    if (member.isTreasurer() && request.getTreasurerApprovalDate() != null) {
+                        return true;
+                    }
+                    return false;
+                })
+                .sorted((r1, r2) -> {
+                    Date date1 = getLatestApprovalDate(r1, member);
+                    Date date2 = getLatestApprovalDate(r2, member);
+                    return date2.compareTo(date1); // Tri décroissant
+                })
+                .collect(Collectors.toList());
+    }
+
+    private Date getLatestApprovalDate(LoanRequest request, Member member) {
+        if (member.isPresident() && request.getPresidentApprovalDate() != null) {
+            return request.getPresidentApprovalDate();
+        }
+        if (member.isSecretary() && request.getSecretaryApprovalDate() != null) {
+            return request.getSecretaryApprovalDate();
+        }
+        if (member.isTreasurer() && request.getTreasurerApprovalDate() != null) {
+            return request.getTreasurerApprovalDate();
+        }
+        return new Date(0); // Date très ancienne si pas d'approbation
+    }
+
 }
