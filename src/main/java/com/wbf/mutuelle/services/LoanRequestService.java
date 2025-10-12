@@ -19,10 +19,11 @@ public class LoanRequestService {
     private final LoanRequestRepository loanRequestRepository;
     private final MemberRepository memberRepository;
     private final MemberService memberService;
-
+/*
     public List<LoanRequest> getAllLoanRequests() {
+
         return loanRequestRepository.findAll();
-    }
+    }*/
 
     public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
@@ -30,6 +31,11 @@ public class LoanRequestService {
 
     public List<LoanRequest> getLoanRequestsByMemberId(Long memberId) {
         return loanRequestRepository.findByMemberId(memberId);
+    }
+
+    public List<LoanRequest> getAllLoanRequests() {
+        // Utiliser la nouvelle méthode avec JOIN FETCH
+        return loanRequestRepository.findAllWithMember();
     }
 
     public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {

@@ -3,6 +3,7 @@ package com.wbf.mutuelle.controllers;
 import com.wbf.mutuelle.dto.ApprovalRequest;
 import com.wbf.mutuelle.entities.LoanRequest;
 import com.wbf.mutuelle.services.LoanRequestService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,11 +23,13 @@ public class LoanRequestController {
         this.loanRequestService = loanRequestService;
     }
 
+    // GET toutes les demandes de prêt
     @GetMapping
     public List<LoanRequest> getAllLoanRequests() {
         return loanRequestService.getAllLoanRequests();
     }
 
+    // GET une demande spécifique par ID
     @GetMapping("/{id}")
     public ResponseEntity<LoanRequest> getLoanRequestById(@PathVariable Long id) {
         return loanRequestService.getLoanRequestById(id)
@@ -34,16 +37,24 @@ public class LoanRequestController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // GET demandes par membre ID
     @GetMapping("/member/{memberId}")
     public List<LoanRequest> getLoanRequestsByMember(@PathVariable Long memberId) {
         return loanRequestService.getLoanRequestsByMemberId(memberId);
     }
 
+    // CORRECTION : Mes demandes de prêt
     @GetMapping("/my-requests")
-    public List<LoanRequest> getMyLoanRequests(@AuthenticationPrincipal UserDetails userDetails) {
-        return loanRequestService.getLoanRequestsByMemberEmail(userDetails.getUsername());
+    public ResponseEntity<List<LoanRequest>> getMyLoanRequests(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            List<LoanRequest> myRequests = loanRequestService.getLoanRequestsByMemberEmail(userDetails.getUsername());
+            return ResponseEntity.ok(myRequests);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
+    // POST créer une nouvelle demande
     @PostMapping
     public ResponseEntity<?> createLoanRequest(@RequestBody LoanRequest loanRequest,
                                                @AuthenticationPrincipal UserDetails userDetails) {
@@ -55,7 +66,7 @@ public class LoanRequestController {
         }
     }
 
-    // Endpoints d'approbation AVEC commentaire (version recommandée)
+    // Endpoints d'approbation
     @PostMapping("/{id}/approve/president")
     public ResponseEntity<?> approveByPresident(@PathVariable Long id,
                                                 @RequestBody ApprovalRequest approvalRequest) {
@@ -89,13 +100,13 @@ public class LoanRequestController {
         }
     }
 
-    // Endpoint de rejet avec raison
+    // Endpoint de rejet
     @PostMapping("/{id}/reject")
     public ResponseEntity<?> rejectLoanRequest(@PathVariable Long id,
                                                @RequestBody Map<String, String> request) {
         try {
             String rejectionReason = request.get("rejectionReason");
-            String rejectedByRole = request.get("rejectedByRole"); // PRESIDENT, SECRETARY, TREASURER
+            String rejectedByRole = request.get("rejectedByRole");
             LoanRequest rejectedRequest = loanRequestService.rejectLoanRequest(id, rejectionReason, rejectedByRole);
             return ResponseEntity.ok(rejectedRequest);
         } catch (RuntimeException e) {
@@ -103,12 +114,12 @@ public class LoanRequestController {
         }
     }
 
-    // Endpoint pour réinitialiser une approbation (admin seulement)
+    // Endpoint pour réinitialiser une approbation
     @PostMapping("/{id}/reset-approval")
     public ResponseEntity<?> resetApproval(@PathVariable Long id,
                                            @RequestBody Map<String, String> request) {
         try {
-            String role = request.get("role"); // PRESIDENT, SECRETARY, TREASURER
+            String role = request.get("role");
             LoanRequest updatedRequest = loanRequestService.resetApproval(id, role);
             return ResponseEntity.ok(updatedRequest);
         } catch (RuntimeException e) {
@@ -137,7 +148,7 @@ public class LoanRequestController {
         return loanRequestService.getRejectedRequests();
     }
 
-    // NOUVEAUX ENDPOINTS POUR LES RESPONSABLES
+    // Endpoints pour les responsables
     @GetMapping("/all-with-approval")
     public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
         return loanRequestService.getAllLoanRequestsWithApprovalDetails();

@@ -7,6 +7,7 @@ import lombok.Setter;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Setter
 @Getter
@@ -42,9 +43,11 @@ public class Member {
     private String subscriptionStatus = "PENDING";
 
     // RELATIONS AVEC LES PRÊTS - AJOUTEZ CES DEUX LIGNES
+    @JsonIgnore
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<LoanRequest> loanRequests = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Loan> loans = new ArrayList<>();
 
