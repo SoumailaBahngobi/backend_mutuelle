@@ -29,5 +29,4 @@ public class Notification {
     private String receiver;
     private String phone;
     private String role;
-    
 }
