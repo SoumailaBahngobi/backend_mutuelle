@@ -17,7 +17,6 @@ import java.util.Map;
 public class LoanValidatorController {
 
     private final LoanRequestService loanRequestService;
-
     // Tableau de bord pour les validateurs
     @GetMapping("/dashboard")
     public ResponseEntity<?> getValidatorDashboard(@AuthenticationPrincipal UserDetails userDetails) {
@@ -28,13 +27,11 @@ public class LoanValidatorController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-
     // Demandes en attente de validation par l'utilisateur courant
     @GetMapping("/my-pending-approvals")
     public List<LoanRequest> getMyPendingApprovals(@AuthenticationPrincipal UserDetails userDetails) {
         return loanRequestService.getPendingApprovalsForCurrentUser(userDetails.getUsername());
     }
-
     // Historique des validations faites par l'utilisateur
     @GetMapping("/my-approval-history")
     public List<LoanRequest> getMyApprovalHistory(@AuthenticationPrincipal UserDetails userDetails) {

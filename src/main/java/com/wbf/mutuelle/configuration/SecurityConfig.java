@@ -37,12 +37,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Activer CORS
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Routes publiques
                         .requestMatchers(
                                 "/mut/register",
                                 "/mut/login",
                                 "/mut/contribution_period/**",
                                 "/mut/contribution/**",
-                                "/mut/loan/**",  //  Tous les endpoints loan sont autorisés
+                                "/mut/loan/**",
                                 "/mut/contribution/upload/payment-proof/**",
                                 "/mut/contribution/upload/payment-proof/",
                                 "/mut/contribution/individual/my-contributions",
@@ -54,11 +55,21 @@ public class SecurityConfig {
                                 "/mut/notification",
                                 "/mut/loans/**"
                         ).permitAll()
-                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER","SECRETARY", "ADMIN","PRESIDENT","TREASURER")
+
+                        // Routes loan_request - SPÉCIFIQUES D'ABORD
+                        .requestMatchers("/mut/loan_request/my-requests").hasAnyRole("MEMBER", "SECRETARY", "ADMIN", "PRESIDENT", "TREASURER")
                         .requestMatchers("/mut/loan_request/approval/**", "/mut/loan_request/status/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-                        .requestMatchers("/mut/loan_request/all-with-approval", "/mut/loan_request/my-pending-approvals",
-                                "/mut/loan_request/validator-dashboard", "/mut/loan_request/*/approval-status")
-                        .hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        .requestMatchers(
+                                "/mut/loan_request/all-with-approval",
+                                "/mut/loan_request/my-pending-approvals",
+                                "/mut/loan_request/validator-dashboard",
+                                "/mut/loan_request/*/approval-status"
+                        ).hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+
+                        // Routes loan_request - GÉNÉRIQUES EN DERNIER
+                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER", "SECRETARY", "ADMIN", "PRESIDENT", "TREASURER")
+
+                        // Toutes les autres routes nécessitent une authentification
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

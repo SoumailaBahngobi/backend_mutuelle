@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import java.io.Serializable;
+import java.util.Map;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -14,6 +18,7 @@ import java.util.Map;
 @NoArgsConstructor
 @Entity
 @Table(name = "loan_request")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LoanRequest {
 
     @Id
@@ -118,4 +123,6 @@ public class LoanRequest {
     public void setApprovalProgress(Map<String, Object> approvalProgress) {
         this.approvalProgress = approvalProgress;
     }
+
+
 }
