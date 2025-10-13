@@ -826,4 +826,8 @@ public class LoanRequestService {
         return new Date(0); // Date très ancienne si pas d'approbation
     }
 
+    public List<LoanRequest> getLoanRequestsByMemberEmail(String username) {
+        return loanRequestRepository.findByMemberEmail(username);
+    }
+
 }
