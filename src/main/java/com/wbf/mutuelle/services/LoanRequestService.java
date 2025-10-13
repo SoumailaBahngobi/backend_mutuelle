@@ -376,6 +376,7 @@ public class LoanRequestService {
 
 import com.wbf.mutuelle.entities.LoanRequest;
 import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.entities.Repayment;
 import com.wbf.mutuelle.entities.Role;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
@@ -830,4 +831,47 @@ public class LoanRequestService {
         return loanRequestRepository.findByMemberEmail(username);
     }
 
+    public List<LoanRequest> getApprovedLoans() {
+        return loanRequestRepository.findByStatusAndIsRepaid("APPROVED", false);
+    }
+/* 
+    public List<Repayment> getRepaymentsByLoanRequest(Long id) {
+    }
+    */
+    public List<Repayment> getRepaymentsByLoanRequest(Long id) {
+        Optional<LoanRequest> loanRequestOpt = loanRequestRepository.findById(id);
+        if (loanRequestOpt.isEmpty()) {
+            throw new RuntimeException("Demande de prêt non trouvée");
+        }
+        LoanRequest loanRequest = loanRequestOpt.get();
+        return loanRequest.getRepayments();
+    }
+
+    public void generateRepaymentScheduleForLoanRequest(Long id) {
+        LoanRequest loanRequest = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+        // Logique pour générer le calendrier de remboursement
+        // Par exemple, créer des objets Repayment basés sur les termes du prêt
+        List<Repayment> repayments = new ArrayList<>();
+        //double monthlyPayment = loanRequest.getAmount() / loanRequest.getTermInMonths();
+      //  double monthlyPayment = loanRequest.getRequestAmount() / loanRequest.getDuration();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(new Date());
+
+        //for (int i = 1; i <= loanRequest.getTermInMonths(); i++) {
+        for (int i = 1; i <= loanRequest.getDuration(); i++) {
+            calendar.add(Calendar.MONTH, 1);
+            Repayment repayment = new Repayment();
+            repayment.setLoanRequest(loanRequest);
+           // repayment.setAmount(monthlyPayment);
+           repayment.setAmount(null);
+            repayment.setDueDate(calendar.getTime());
+            // repayment.setPaid(false);
+            repayment.setAmount(null);
+            repayments.add(repayment);
+        }
+
+        loanRequest.setRepayments(repayments);
+        loanRequestRepository.save(loanRequest);    
+    }
 }

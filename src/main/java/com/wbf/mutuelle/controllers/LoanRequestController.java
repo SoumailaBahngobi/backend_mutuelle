@@ -2,6 +2,7 @@ package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.dto.ApprovalRequest;
 import com.wbf.mutuelle.entities.LoanRequest;
+import com.wbf.mutuelle.entities.Repayment;
 import com.wbf.mutuelle.services.LoanRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -170,4 +171,35 @@ public class LoanRequestController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @PostMapping("/{id}/generate-repayment-schedule")
+   /* public void generateRepaymentSchedule(@PathVariable Long id) {
+        LoanRequest loanRequest = loanRequestService.getLoanRequestById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
+
+        if (!"APPROVED".equals(loanRequest.getStatus())) {
+            throw new RuntimeException("Seules les demandes de prêt approuvées peuvent avoir un plan de remboursement");
+        }
+
+        LoanRequestController repaymentService;
+        repaymentService.generateRepaymentSchedule(loanRequest);
+    }*/
+    public void generateRepaymentSchedule(@PathVariable Long id) {
+        loanRequestService.generateRepaymentScheduleForLoanRequest(id);
+    }
+    
+
+    @GetMapping("/{id}/repayments")
+    /*public List<Repayment> getLoanRequestRepayments(@PathVariable Long id) {
+        return repaymentService.getRepaymentsByLoanRequest(id);
+    }*/
+    public List<Repayment> getLoanRequestRepayments(@PathVariable Long id) {
+        return loanRequestService.getRepaymentsByLoanRequest(id);
+    }
+
+    @GetMapping("/approved")
+    public List<LoanRequest> getApprovedLoans() {
+        return loanRequestService.getApprovedLoans();
+    }
+
 }
