@@ -1,115 +1,3 @@
-/*package com.wbf.mutuelle.entities;
-
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-import java.math.BigDecimal;
-import java.util.Date;
-
-@Setter
-@Getter
-@NoArgsConstructor
-@Entity
-@Table(name = "loan")
-public class Loan {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private BigDecimal amount;           // montant emprunté
-    private Integer duration;            // durée en mois
-    private Date beginDate;              // date de début du prêt
-    private BigDecimal repaymentAmount;// montant à rembourser
-    private Date endDate;
-
-    public Date getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(Date endDate) {
-        this.endDate = endDate;
-    }
-
-    public boolean isRepaid() {
-        return isRepaid;
-    }
-
-    public void setRepaid(boolean repaid) {
-        isRepaid = repaid;
-    }
-
-    private boolean isRepaid;
-
-    @ManyToOne // un membre peut avoir plusieurs prêts
-    @JoinColumn(name = "member_id")
-    private Member member;
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public void setDuration(Integer duration) {
-        this.duration = duration;
-    }
-
-    public void setBeginDate(Date beginDate) {
-        this.beginDate = beginDate;
-    }
-
-    public void setRepaymentAmount(BigDecimal repaymentAmount) {
-        this.repaymentAmount = repaymentAmount;
-    }
-
-    public void setMember(Member member) {
-        this.member = member;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public Integer getDuration() {
-        return duration;
-    }
-
-    public Date getBeginDate() {
-        return beginDate;
-    }
-
-    public BigDecimal getRepaymentAmount() {
-        return repaymentAmount;
-    }
-
-    public Member getMember() {
-        return member;
-    }
-
-    public Loan(Long id, BigDecimal amount, Integer duration, Date beginDate, BigDecimal repaymentAmount, Member member) {
-        this.id = id;
-        this.amount = amount;
-        this.duration = duration;
-        this.beginDate = beginDate;
-        this.repaymentAmount = repaymentAmount;
-        this.member = member;
-    }
-
-    public void setIsRepaid(boolean b) {
-        this.isRepaid = isRepaid;
-    }
-}
-*/
-
 package com.wbf.mutuelle.entities;
 
 import jakarta.persistence.*;
@@ -118,7 +6,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Setter
 @Getter
@@ -141,9 +32,13 @@ public class Loan {
     private Date endDate;
 
     private BigDecimal repaymentAmount;
+    private BigDecimal remainingAmount;
+    private BigDecimal amountPaid = BigDecimal.ZERO;
 
     @Column(name = "is_repaid")
     private Boolean isRepaid = false;
+
+    private String status = "ACTIVE"; // ACTIVE, REPAID, OVERDUE
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
@@ -152,6 +47,49 @@ public class Loan {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "loan_request_id")
     private LoanRequest loanRequest;
+
+    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Repayment> repayments = new ArrayList<>();
+
+    // Méthodes utilitaires pour les remboursements
+    public BigDecimal calculateRemainingBalance() {
+        if (repayments == null || repayments.isEmpty()) {
+            return repaymentAmount;
+        }
+
+        BigDecimal totalPaid = repayments.stream()
+                .filter(repayment -> "PAID".equals(repayment.getStatus()))
+                .map(Repayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return repaymentAmount.subtract(totalPaid);
+    }
+
+    public boolean isFullyPaid() {
+        return calculateRemainingBalance().compareTo(BigDecimal.ZERO) <= 0;
+    }
+
+    public void updateLoanStatus() {
+        BigDecimal remaining = calculateRemainingBalance();
+        this.remainingAmount = remaining;
+        this.amountPaid = repaymentAmount.subtract(remaining);
+
+        if (isFullyPaid()) {
+            this.isRepaid = true;
+            this.status = "REPAID";
+        } else if (new Date().after(endDate)) {
+            this.status = "OVERDUE";
+        } else {
+            this.status = "ACTIVE";
+        }
+    }
+
+    public BigDecimal getMonthlyInstallment() {
+        if (duration == null || duration == 0) {
+            return repaymentAmount;
+        }
+    return repaymentAmount.divide(BigDecimal.valueOf(duration), 2, RoundingMode.HALF_UP);
+    }
 
     public Boolean getIsRepaid() {
         return isRepaid;

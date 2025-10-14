@@ -7,6 +7,10 @@ import com.wbf.mutuelle.services.LoanRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,7 +54,21 @@ public class LoanRequestController {
 
     @GetMapping("/my-requests")
     public List<LoanRequest> getMyLoanRequests(@AuthenticationPrincipal UserDetails userDetails) {
-        return loanRequestService.getLoanRequestsByMemberEmail(userDetails.getUsername());
+        String username = null;
+        if (userDetails != null) {
+            username = userDetails.getUsername();
+        } else {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
+                username = auth.getName();
+            }
+        }
+
+        if (username == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non authentifié");
+        }
+
+        return loanRequestService.getLoanRequestsByMemberEmail(username);
     }
 
     @PostMapping

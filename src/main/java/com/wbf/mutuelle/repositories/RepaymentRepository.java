@@ -19,6 +19,11 @@ public interface RepaymentRepository extends JpaRepository<Repayment, Long> {
 
     Optional<Repayment> findFirstByLoanRequestIdAndStatusOrderByDueDateAsc(Long loanRequestId, String status);
 
+    // Loan-based queries
+    List<Repayment> findByLoanId(Long loanId);
+
+    Optional<Repayment> findFirstByLoanIdAndStatusOrderByDueDateAsc(Long loanId, String status);
+
     @Query("SELECT SUM(r.amount) FROM Repayment r WHERE r.loanRequest.id = :loanRequestId AND r.status = 'PAID'")
     BigDecimal getTotalRepaidAmount(@Param("loanRequestId") Long loanRequestId);
 

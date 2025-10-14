@@ -36,6 +36,17 @@ public class RepaymentController {
         return repaymentService.createRepayment(repayment);
     }
 
+    @PostMapping("/generate-for-loan/{loanId}")
+    public void generateRepaymentScheduleForLoan(@PathVariable Long loanId) {
+        repaymentService.createInstallmentsForLoan(loanId);
+    }
+
+    @PostMapping("/pay-full/{loanId}")
+    public void payFullLoan(@PathVariable Long loanId,
+                            @RequestParam(required = false) String paymentMethod,
+                            @RequestParam(required = false) String transactionReference) {
+        repaymentService.payFullLoan(loanId, paymentMethod, transactionReference);
+    }
     @PostMapping("/{id}/process")
     public Repayment processRepayment(@PathVariable Long id, @RequestParam BigDecimal amountPaid) {
         return repaymentService.processRepayment(id, amountPaid);

@@ -32,6 +32,16 @@ public class MemberService {
         return memberRepository.findById(id);
     }
 
+    public Optional<Member> getMemberByEmail(String email) {
+        return memberRepository.findByEmail(email);
+    }
+
+    public Member updateProfileImage(Long memberId, String filename) {
+        Member member = memberRepository.findById(memberId).orElseThrow(() -> new RuntimeException("Member not found"));
+        member.setProfileImage(filename);
+        return memberRepository.save(member);
+    }
+
     public Member createMember(Member member){
         if (member.getIsRegular() == null) member.setIsRegular(false);
         if (member.getHasPreviousDebt() == null) member.setHasPreviousDebt(false);
@@ -114,9 +124,7 @@ public class MemberService {
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
     }
 
-    public Optional<Member> getMemberByEmail(String email) {
-        return memberRepository.findByEmail(email);
-    }
+    
 
     public String getUserRole(Member member) {
         if (member.isPresident()) return "PRESIDENT";
