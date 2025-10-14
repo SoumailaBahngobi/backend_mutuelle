@@ -87,7 +87,7 @@ public class LoanRequest {
     private String rejectionReason;
 
     @Column(name = "interest_rate")
-    private BigDecimal interestRate = new BigDecimal("5.0");
+    private BigDecimal interestRate = new BigDecimal("0");
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)

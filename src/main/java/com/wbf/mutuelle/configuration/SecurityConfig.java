@@ -66,6 +66,7 @@ public class SecurityConfig {
             "/mut/contribution/upload/payment-proof/",
             "/mut/event/**",
             "/mut/upload/**",
+            "mut/repayment",
             "/mut/notification").permitAll()
 
         .requestMatchers("/mut/**").authenticated()
