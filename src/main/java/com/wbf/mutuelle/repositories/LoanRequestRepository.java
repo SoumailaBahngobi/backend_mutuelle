@@ -15,6 +15,57 @@ public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
     List<LoanRequest> findByMemberId(Long memberId);  
 }
 */
+/*
+package com.wbf.mutuelle.repositories;
+
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import com.wbf.mutuelle.entities.LoanRequest;
+import com.wbf.mutuelle.entities.Member;
+
+@Repository
+public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
+  /*  List<LoanRequest> findByMember(Member member);
+    List<LoanRequest> findByMemberId(Long memberId);
+    List<LoanRequest> findByStatus(String status);
+
+    List<LoanRequest> findByPresidentApproved(Boolean approved);
+    List<LoanRequest> findBySecretaryApproved(Boolean approved);
+    List<LoanRequest> findByTreasurerApproved(Boolean approved);
+
+    @Query("SELECT lr FROM LoanRequest lr WHERE lr.status = 'PENDING' OR lr.status = 'IN_REVIEW'")
+    List<LoanRequest> findActiveRequests();
+
+    List<LoanRequest> findByMemberEmail(String email);
+    List<LoanRequest> findByMemberIdAndStatusIn(Long memberId, List<String> statuses);
+
+    @Query("SELECT lr FROM LoanRequest lr LEFT JOIN FETCH lr.member ORDER BY lr.requestDate DESC")
+    List<LoanRequest> findAllWithMember();
+
+}*/
+
+
+
+/*package com.wbf.mutuelle.repositories;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.wbf.mutuelle.entities.LoanRequest;
+import com.wbf.mutuelle.entities.Member;
+
+@Repository
+public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
+
+  List<LoanRequest> findByMember(Member member);
+    List<LoanRequest> findByMemberId(Long memberId);
+}
+*/
 
 package com.wbf.mutuelle.repositories;
 
@@ -91,6 +142,10 @@ public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
             "(:role = 'SECRETARY' AND lr.secretaryApproved = false) OR " +
             "(:role = 'TREASURER' AND lr.treasurerApproved = false)")
     List<LoanRequest> findPendingApprovalsByRole(@Param("role") String role);
+<<<<<<< HEAD
+=======
+    List<LoanRequest> findByStatusAndIsRepaid(String status, Boolean isRepaid);
+>>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 
 
 }

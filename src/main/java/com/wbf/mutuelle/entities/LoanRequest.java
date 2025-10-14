@@ -5,6 +5,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+<<<<<<< HEAD
+=======
+
+import java.io.Serializable;
+import java.util.List;
+>>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 import java.util.Map;
 
 import java.math.BigDecimal;
@@ -29,6 +35,10 @@ public class LoanRequest {
 
     @Column(nullable = false)
     private Integer duration;
+
+    public BigDecimal getRequestAmount() {
+        return requestAmount;
+    }
 
     @Column(nullable = false)
     private String reason;
@@ -121,4 +131,14 @@ public class LoanRequest {
     public void setApprovalProgress(Map<String, Object> approvalProgress) {
         this.approvalProgress = approvalProgress;
     }
+
+/*
+    public List<Repayment> getRepayments() {
+    }*/
+    @OneToMany(mappedBy = "loanRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Repayment> repayments;
+    public List<Repayment> getRepayments() {
+        return repayments;
+    }
+    
 }

@@ -8,10 +8,15 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+<<<<<<< HEAD
+=======
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+>>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 
 @Setter
 @Getter
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "member")
 public class Member {
 
@@ -25,6 +30,9 @@ public class Member {
     private String password;
     private String npi;
     private String phone;
+
+    @Column(name = "profile_image")
+    private String profileImage;
 
     @Enumerated(EnumType.STRING)
     private Role role;

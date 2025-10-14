@@ -29,6 +29,4 @@ public class ApprovalRequest {
 
     private String rejectionReason;
     private String role;
-
-
 }

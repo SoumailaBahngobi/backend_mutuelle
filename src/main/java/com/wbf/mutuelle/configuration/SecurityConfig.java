@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -35,6 +36,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Activer CORS
+<<<<<<< HEAD
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -61,6 +63,44 @@ public class SecurityConfig {
                                 "/mut/loan_request/validator-dashboard", "/mut/loan_request/*/approval-status")
                         .hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .anyRequest().authenticated()
+=======
+        .csrf(AbstractHttpConfigurer::disable)
+        .authorizeHttpRequests(auth -> auth
+            // Routes publiques (auth non requise)
+            .requestMatchers(
+                "/mut/register",
+                "/mut/login",
+                "/mut/contribution_period/**",
+                "/mut/contribution/upload/payment-proof/**",
+                "/mut/contribution/upload/payment-proof/",
+                "/mut/event/**",
+                "/mut/upload/**",
+                "/mut/notification"
+            ).permitAll()
+
+            // Endpoints nécessitant des rôles de responsables (approbation de prêt, création de cotisation)
+            .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+            .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+
+        // Autoriser les endpoints publics (en lecture) et l'inscription / login
+        // Le endpoint d'upload de photo de profil doit être accessible aux utilisateurs authentifiés
+        .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
+
+        // Par défaut, les routes sous /mut/** requièrent une authentification
+        .requestMatchers("/mut/register",
+            "/mut/login",
+            "/mut/contribution_period/**",
+            "/mut/contribution/upload/payment-proof/**",
+            "/mut/contribution/upload/payment-proof/",
+            "/mut/event/**",
+            "/mut/upload/**",
+            "/mut/notification").permitAll()
+
+        .requestMatchers("/mut/**").authenticated()
+
+        // Toute autre requête externe doit être authentifiée
+        .anyRequest().authenticated()
+>>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

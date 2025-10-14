@@ -70,7 +70,4 @@ public class RegisterRequest {
     private String phone;
     private Role role;
     private String npi;
-
-
-
 }

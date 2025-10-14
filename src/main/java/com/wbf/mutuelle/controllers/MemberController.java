@@ -12,6 +12,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
 
 @CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
@@ -19,6 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @RequiredArgsConstructor
 public class MemberController {
     private final MemberService memberService;
+    private final String UPLOAD_DIR = "./uploads/profile-images/";
 
     @GetMapping("/profile")
     public ResponseEntity<Member> getProfile() {
@@ -29,6 +38,58 @@ public class MemberController {
                 .findFirst()
                 .orElseThrow();
         return ResponseEntity.ok(member);
+    }
+
+    @PostMapping(value = "/upload-profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadProfileImage(@RequestParam("file") MultipartFile file) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilisateur non authentifié");
+            }
+
+            String email = authentication.getName();
+            Member member = memberService.getMemberByEmail(email).orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+
+            if (file == null || file.isEmpty()) return ResponseEntity.badRequest().body("Fichier vide");
+
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+
+            String originalFileName = file.getOriginalFilename();
+            String extension = "";
+            if (originalFileName != null && originalFileName.contains(".")) {
+                extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            }
+
+            String filename = "profile_" + member.getId() + System.currentTimeMillis() + extension;
+            Path filePath = uploadPath.resolve(filename);
+            Files.copy(file.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            // update member
+            memberService.updateProfileImage(member.getId(), filename);
+
+            return ResponseEntity.ok().body(Map.of("filename", filename));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur upload: " + e.getMessage());
+        }
+    }
+
+    @GetMapping(value = "/profile-image/{filename}")
+    public ResponseEntity<byte[]> getProfileImage(@PathVariable String filename) {
+        try {
+            Path filePath = Paths.get(UPLOAD_DIR).resolve(filename);
+            if (!Files.exists(filePath)) return ResponseEntity.notFound().build();
+
+            String contentType = Files.probeContentType(filePath);
+            byte[] data = Files.readAllBytes(filePath);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            return new ResponseEntity<>(data, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping
