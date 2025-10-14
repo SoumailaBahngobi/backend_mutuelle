@@ -296,4 +296,32 @@
                                  referencedTableName="repayment"/>
     </changeSet>
 
+    <!-- Add missing columns to repayment to match JPA entity -->
+    <changeSet id="1757436623574-32" author="SoumailaBAHNGOBI">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="repayment"/>
+            </and>
+        </preConditions>
+
+        <addColumn tableName="repayment">
+            <column name="loan_id" type="BIGINT"/>
+            <column name="loan_request_id" type="BIGINT"/>
+            <column name="installment_number" type="INT"/>
+            <column name="total_installments" type="INT"/>
+            <column name="due_date" type="DATETIME"/>
+            <column name="payment_method" type="VARCHAR(255)"/>
+            <column name="transaction_reference" type="VARCHAR(255)"/>
+            <column name="notes" type="VARCHAR(1024)"/>
+        </addColumn>
+
+        <addForeignKeyConstraint baseColumnNames="loan_id" baseTableName="repayment"
+                                 constraintName="fk_repayment_on_loan" referencedColumnNames="id"
+                                 referencedTableName="loan"/>
+
+        <addForeignKeyConstraint baseColumnNames="loan_request_id" baseTableName="repayment"
+                                 constraintName="fk_repayment_on_loan_request" referencedColumnNames="id_loan_request"
+                                 referencedTableName="loan_request"/>
+    </changeSet>
+
 </databaseChangeLog>
