@@ -36,7 +36,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Activer CORS
-<<<<<<< HEAD
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -63,7 +63,7 @@ public class SecurityConfig {
                                 "/mut/loan_request/validator-dashboard", "/mut/loan_request/*/approval-status")
                         .hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .anyRequest().authenticated()
-=======
+
         .csrf(AbstractHttpConfigurer::disable)
         .authorizeHttpRequests(auth -> auth
             // Routes publiques (auth non requise)
@@ -104,7 +104,6 @@ public class SecurityConfig {
 
         // Toute autre requête externe doit être authentifiée
         .anyRequest().authenticated()
->>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
