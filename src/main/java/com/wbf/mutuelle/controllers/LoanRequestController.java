@@ -58,7 +58,7 @@ public class LoanRequestController {
 
     // CORRECTION : Mes demandes de prêt
     @GetMapping("/my-requests")
-<<<<<<< HEAD
+
     public ResponseEntity<List<LoanRequest>> getMyLoanRequests(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             List<LoanRequest> myRequests = loanRequestService.getLoanRequestsByMemberEmail(userDetails.getUsername());
@@ -66,7 +66,6 @@ public class LoanRequestController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-=======
     public List<LoanRequest> getMyLoanRequests(@AuthenticationPrincipal UserDetails userDetails) {
         String username = null;
         if (userDetails != null) {

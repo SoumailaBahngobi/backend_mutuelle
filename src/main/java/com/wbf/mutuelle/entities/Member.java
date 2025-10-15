@@ -8,10 +8,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-<<<<<<< HEAD
-=======
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
->>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 
 @Setter
 @Getter
