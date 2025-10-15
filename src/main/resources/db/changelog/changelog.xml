@@ -168,10 +168,7 @@
                                  constraintName="FK_CONTRIBUTION_ON_MEMBER" referencedColumnNames="id"
                                  referencedTableName="member"/>
     </changeSet>
-    <changeSet id="1758578548375-17" author="HP">
-        <addForeignKeyConstraint baseColumnNames="id" baseTableName="loan" constraintName="FK_LOAN_ON_ID"
-                                 referencedColumnNames="id" referencedTableName="repayment"/>
-    </changeSet>
+    <!-- changeSet 1758578548375-17 removed: it created an incorrect FK from loan.id -> repayment.id which is invalid -->
     <changeSet id="1758578548375-18" author="HP">
         <addForeignKeyConstraint baseColumnNames="member_id" baseTableName="loan" constraintName="FK_LOAN_ON_MEMBER"
                                  referencedColumnNames="id" referencedTableName="member"/>
@@ -200,6 +197,19 @@
         <addForeignKeyConstraint baseColumnNames="members_id" baseTableName="event_members"
                                  constraintName="fk_evemem_on_member" referencedColumnNames="id"
                                  referencedTableName="member"/>
+    </changeSet>
+
+    <!-- Fix: drop incorrect FK constraint that referenced repayment from loan.id -->
+    <!-- Idempotent: will run only if the FK exists -->
+    <changeSet id="1758578548375-99" author="soumaila">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="loan" />
+                <foreignKeyConstraintExists foreignKeyName="FK_LOAN_ON_ID" />
+            </and>
+        </preConditions>
+
+        <dropForeignKeyConstraint baseTableName="loan" constraintName="FK_LOAN_ON_ID"/>
     </changeSet>
 
 </databaseChangeLog>

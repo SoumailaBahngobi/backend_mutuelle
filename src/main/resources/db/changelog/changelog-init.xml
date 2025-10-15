@@ -324,4 +324,17 @@
                                  referencedTableName="loan_request"/>
     </changeSet>
 
+    <!-- Fix: drop incorrect FK constraint that referenced repayment from loan.id -->
+    <!-- This prevents inserts into loan from failing because loan.id was incorrectly constrained -->
+    <changeSet id="1757436623574-33" author="soumaila">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="loan" />
+                <foreignKeyConstraintExists foreignKeyName="FK_LOAN_ON_ID" />
+            </and>
+        </preConditions>
+
+        <dropForeignKeyConstraint baseTableName="loan" constraintName="FK_LOAN_ON_ID"/>
+    </changeSet>
+
 </databaseChangeLog>

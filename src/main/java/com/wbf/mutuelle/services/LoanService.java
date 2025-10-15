@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -41,20 +42,20 @@ public class LoanService {
         if (!loanRequest.isFullyApproved()) {
             throw new RuntimeException("La demande de prêt n'est pas encore approuvée");
         }
-        
+
         // Vérifier si un prêt existe déjà pour cette demande
         Optional<Loan> existingLoan = loanRepository.findByLoanRequestId(loanRequestId);
         if (existingLoan.isPresent()) {
             throw new RuntimeException("Un prêt existe déjà pour cette demande");
         }
-        
+
         // Calculer le montant à rembourser
         BigDecimal repaymentAmount = calculateRepaymentAmount(
                 loanRequest.getRequestAmount(),
                 loanRequest.getInterestRate(),
                 loanRequest.getDuration()
         );
-        
+
         // Calculer la date de fin
         Date endDate = calculateEndDate(loanRequest.getDuration());
 
@@ -65,7 +66,7 @@ public class LoanService {
         loan.setBeginDate(new Date());
         loan.setEndDate(endDate);
         loan.setRepaymentAmount(repaymentAmount);
-       // loan.setInterestRate(loanRequest.getInterestRate());
+        loan.setInterestRate(loanRequest.getInterestRate()); // Ajout du taux d'intérêt
         loan.setMember(loanRequest.getMember());
         loan.setLoanRequest(loanRequest);
         loan.setIsRepaid(false);
@@ -135,7 +136,7 @@ public class LoanService {
             loan.setDuration(loanDetails.getDuration());
             // Recalculer la date de fin si la durée change
             loan.setEndDate(calculateEndDate(loanDetails.getDuration()));
-        }/*
+        }
         if (loanDetails.getInterestRate() != null) {
             loan.setInterestRate(loanDetails.getInterestRate());
             // Recalculer le montant de remboursement si le taux change
@@ -144,7 +145,7 @@ public class LoanService {
                     loanDetails.getInterestRate(),
                     loan.getDuration()
             ));
-        }*/
+        }
         if (loanDetails.getIsRepaid() != null) {
             loan.setIsRepaid(loanDetails.getIsRepaid());
         }
@@ -161,10 +162,14 @@ public class LoanService {
     }
 
     private BigDecimal calculateRepaymentAmount(BigDecimal amount, BigDecimal interestRate, Integer duration) {
-        // Formule simple: montant + (montant * taux * durée en années)
-        BigDecimal yearlyInterest = amount.multiply(interestRate).divide(BigDecimal.valueOf(100));
-        BigDecimal totalInterest = yearlyInterest.multiply(BigDecimal.valueOf(duration)).divide(BigDecimal.valueOf(12));
-        return amount.add(totalInterest);
+        // Formule corrigée : montant + (montant * taux * durée en mois / 12)
+        BigDecimal monthlyInterestRate = interestRate.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)
+                .divide(BigDecimal.valueOf(12), 6, RoundingMode.HALF_UP);
+
+        BigDecimal totalInterest = amount.multiply(monthlyInterestRate)
+                .multiply(BigDecimal.valueOf(duration));
+
+        return amount.add(totalInterest).setScale(2, RoundingMode.HALF_UP);
     }
 
     private Date calculateEndDate(Integer durationInMonths) {

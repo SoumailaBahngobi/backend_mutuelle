@@ -92,15 +92,22 @@ public class LoanRequest {
     @Column(name = "interest_rate")
     private BigDecimal interestRate = new BigDecimal("0");
 
+    // ✅ NOUVEAU CHAMP : Indique si le prêt a été créé automatiquement
+    @Column(name = "loan_created")
+    private Boolean loanCreated = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
     // Méthodes utilitaires
     public Boolean isFullyApproved() {
-        return Boolean.TRUE.equals(presidentApproved) &&
-                Boolean.TRUE.equals(secretaryApproved) &&
-                Boolean.TRUE.equals(treasurerApproved);
+    // A request is fully approved when all three responsible roles have approved it.
+    // Do NOT depend on the status field here (circular dependency). The status is
+    // set to APPROVED by the service when this method returns true.
+    return Boolean.TRUE.equals(presidentApproved) &&
+        Boolean.TRUE.equals(secretaryApproved) &&
+        Boolean.TRUE.equals(treasurerApproved);
     }
 
     public Boolean hasAnyApproval() {
@@ -132,13 +139,10 @@ public class LoanRequest {
         this.approvalProgress = approvalProgress;
     }
 
-/*
-    public List<Repayment> getRepayments() {
-    }*/
     @OneToMany(mappedBy = "loanRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Repayment> repayments;
+
     public List<Repayment> getRepayments() {
         return repayments;
     }
-    
 }

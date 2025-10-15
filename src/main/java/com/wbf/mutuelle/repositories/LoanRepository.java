@@ -28,11 +28,14 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     // Trouver les prêts avec montant supérieur à une valeur
     List<Loan> findByAmountGreaterThan(BigDecimal amount);
 
-    // Requête personnalisée pour les prêts en cours (non remboursés)
+    // Requête personnalisée pour les prêts en cours (non remboursés et date de fin non dépassée)
     @Query("SELECT l FROM Loan l WHERE l.isRepaid = false AND l.endDate > CURRENT_DATE")
     List<Loan> findActiveLoans();
 
     // Requête pour les prêts échus mais non remboursés
     @Query("SELECT l FROM Loan l WHERE l.isRepaid = false AND l.endDate <= CURRENT_DATE")
     List<Loan> findOverdueLoans();
+
+    // Trouver les prêts par taux d'intérêt
+    List<Loan> findByInterestRateGreaterThan(BigDecimal interestRate);
 }

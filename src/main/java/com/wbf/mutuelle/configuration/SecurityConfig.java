@@ -82,6 +82,9 @@ public class SecurityConfig {
             .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
             .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
 
+            // Autoriser explicitement la création de demandes de prêt aux utilisateurs authentifiés
+            .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/loan_request").authenticated()
+
         // Autoriser les endpoints publics (en lecture) et l'inscription / login
         // Le endpoint d'upload de photo de profil doit être accessible aux utilisateurs authentifiés
         .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
@@ -94,7 +97,7 @@ public class SecurityConfig {
             "/mut/contribution/upload/payment-proof/",
             "/mut/event/**",
             "/mut/upload/**",
-            "mut/repayment",
+            "/mut/repayment",
             "/mut/notification").permitAll()
 
         .requestMatchers("/mut/**").authenticated()
