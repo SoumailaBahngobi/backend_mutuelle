@@ -75,7 +75,21 @@ public class LoanRequestController {
     public ResponseEntity<?> createLoanRequest(@RequestBody LoanRequest loanRequest,
                                                @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            LoanRequest createdRequest = loanRequestService.createLoanRequest(loanRequest, userDetails.getUsername());
+            String username = null;
+            if (userDetails != null) {
+                username = userDetails.getUsername();
+            } else {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
+                    username = auth.getName();
+                }
+            }
+
+            if (username == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilisateur non authentifié");
+            }
+
+            LoanRequest createdRequest = loanRequestService.createLoanRequest(loanRequest, username);
             return ResponseEntity.ok(createdRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -172,12 +186,40 @@ public class LoanRequestController {
 
     @GetMapping("/my-pending-approvals")
     public List<LoanRequest> getMyPendingApprovals(@AuthenticationPrincipal UserDetails userDetails) {
-        return loanRequestService.getPendingApprovalsForCurrentUser(userDetails.getUsername());
+        String username = null;
+        if (userDetails != null) {
+            username = userDetails.getUsername();
+        } else {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
+                username = auth.getName();
+            }
+        }
+
+        if (username == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non authentifié");
+        }
+
+        return loanRequestService.getPendingApprovalsForCurrentUser(username);
     }
 
     @GetMapping("/validator-dashboard")
     public Map<String, Object> getValidatorDashboard(@AuthenticationPrincipal UserDetails userDetails) {
-        return loanRequestService.getValidatorDashboard(userDetails.getUsername());
+        String username = null;
+        if (userDetails != null) {
+            username = userDetails.getUsername();
+        } else {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
+                username = auth.getName();
+            }
+        }
+
+        if (username == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non authentifié");
+        }
+
+        return loanRequestService.getValidatorDashboard(username);
     }
 
     @GetMapping("/{id}/approval-status")
@@ -191,19 +233,13 @@ public class LoanRequestController {
     }
 
     @PostMapping("/{id}/generate-repayment-schedule")
-   /* public void generateRepaymentSchedule(@PathVariable Long id) {
-        LoanRequest loanRequest = loanRequestService.getLoanRequestById(id)
-                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
-
-        if (!"APPROVED".equals(loanRequest.getStatus())) {
-            throw new RuntimeException("Seules les demandes de prêt approuvées peuvent avoir un plan de remboursement");
+    public ResponseEntity<?> generateRepaymentSchedule(@PathVariable Long id) {
+        try {
+            loanRequestService.generateRepaymentScheduleForLoanRequest(id);
+            return ResponseEntity.ok().body(Map.of("message", "Calendrier de remboursement généré"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-
-        LoanRequestController repaymentService;
-        repaymentService.generateRepaymentSchedule(loanRequest);
-    }*/
-    public void generateRepaymentSchedule(@PathVariable Long id) {
-        loanRequestService.generateRepaymentScheduleForLoanRequest(id);
     }
     
 
@@ -216,8 +252,19 @@ public class LoanRequestController {
     }
 
     @GetMapping("/approved")
+    
     public List<LoanRequest> getApprovedLoans() {
         return loanRequestService.getApprovedLoans();
+    }
+
+    @PostMapping("/{id}/force-create-loan")
+    public ResponseEntity<?> forceCreateLoan(@PathVariable Long id) {
+        try {
+            loanRequestService.forceCreateLoanFromRequest(id);
+            return ResponseEntity.ok().body(Map.of("message", "Prêt créé avec succès"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
 }

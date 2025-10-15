@@ -77,10 +77,10 @@ public class RepaymentService {
 
             // Update loan status
             loan.getRepayments().add(saved);
-            loan.updateLoanStatus();
+            loan.updateRepaymentStatus();
             loanRepository.save(loan);
 
-            if (loan.isFullyPaid()) {
+            if (Boolean.TRUE.equals(loan.getIsRepaid())) {
                 // mark associated loan request if present
                 if (loan.getLoanRequest() != null) {
                     LoanRequest lr = loan.getLoanRequest();
@@ -197,11 +197,11 @@ public class RepaymentService {
 
         repaymentRepository.save(repayment);
 
-        loan.getRepayments().add(repayment);
-        loan.updateLoanStatus();
-        loanRepository.save(loan);
+    loan.getRepayments().add(repayment);
+    loan.updateRepaymentStatus();
+    loanRepository.save(loan);
 
-        if (loan.isFullyPaid()) {
+    if (Boolean.TRUE.equals(loan.getIsRepaid())) {
             if (loan.getLoanRequest() != null) {
                 LoanRequest lr = loan.getLoanRequest();
                 lr.setIsRepaid(true);
