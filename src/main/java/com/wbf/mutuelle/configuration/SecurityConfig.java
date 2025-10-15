@@ -70,6 +70,13 @@ public class SecurityConfig {
             "/mut/event/**",
             "/mut/upload/**",
             "/mut/repayment",
+            "/mut/notification",
+            "/mut/loan_request/**",
+            "/mut/loan_request/*/approve/**",
+            "/mut/loan_request/*/reject/**",
+            "/mut/loan",
+            "/mut/loan/**",
+            "/mut/repayment/**",
             "/mut/notification").permitAll()
 
         .requestMatchers("/mut/**").authenticated()
