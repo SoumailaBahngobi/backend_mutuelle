@@ -35,10 +35,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Activer CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Routes publiques (auth non requise)
+                        // Routes publiques
                         .requestMatchers(
                                 "/mut/register",
                                 "/mut/login",
@@ -50,42 +50,31 @@ public class SecurityConfig {
                                 "/mut/notification"
                         ).permitAll()
 
-                        // Endpoints nécessitant des rôles de responsables (approbation de prêt, création de cotisation)
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        // 🔥 CORRECTION DÉFINITIVE : Autoriser les remboursements pour les rôles
+                        .requestMatchers(HttpMethod.GET, "/mut/repayment/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/mut/repayment/**").hasAnyRole("TREASURER", "ADMIN", "SECRETARY", "PRESIDENT")
+                        .requestMatchers(HttpMethod.PUT, "/mut/repayment/**").hasAnyRole("TREASURER", "ADMIN", "SECRETARY", "PRESIDENT")
+                        .requestMatchers(HttpMethod.DELETE, "/mut/repayment/**").hasAnyRole("TREASURER", "ADMIN")
+
+                        // Endpoints pour responsables
+                        .requestMatchers(HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
 
-                        // ✅ Endpoints spécifiques pour le trésorier
+                        // Endpoints trésorier
                         .requestMatchers("/mut/treasurer/**").hasRole("TREASURER")
                         .requestMatchers("/mut/loan_request/treasurer/**").hasRole("TREASURER")
 
-                        // Autoriser explicitement la création de demandes de prêt aux utilisateurs authentifiés
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/loan_request").authenticated()
-
-                        // Autoriser les endpoints publics (en lecture) et l'inscription / login
-                        // Le endpoint d'upload de photo de profil doit être accessible aux utilisateurs authentifiés
+                        // Endpoints authentifiés généraux
+                        .requestMatchers(HttpMethod.POST, "/mut/loan_request").authenticated()
                         .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
 
-                        // Par défaut, les routes sous /mut/** requièrent une authentification
-                        .requestMatchers("/mut/register",
-                                "/mut/login",
-                                "/mut/contribution_period/**",
-                                "/mut/contribution/upload/payment-proof/**",
-                                "/mut/contribution/upload/payment-proof/",
-                                "/mut/event/**",
-                                "/mut/upload/**",
-                                "/mut/repayment",
-                                "/mut/notification",
-                                "/mut/loan_request/**",
-                                "/mut/loan_request/*/approve/**",
-                                "/mut/loan_request/*/reject/**",
-                                "/mut/loan",
-                                "/mut/loan/**",
-                                "/mut/repayment/**",
-                                "/mut/notification").permitAll()
+                        // Endpoints de lecture
+                        .requestMatchers(HttpMethod.GET, "/mut/loan_request/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/mut/loan/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/mut/member/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/mut/loan-requests/approved").authenticated()
 
-                        .requestMatchers("/mut/**").authenticated()
-
-                        // Toute autre requête externe doit être authentifiée
+                        // Par défaut - authentification requise
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -97,7 +86,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*")); // Autoriser toutes les origines
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
