@@ -1,9 +1,6 @@
 package com.wbf.mutuelle.services;
 
-import com.wbf.mutuelle.entities.LoanRequest;
-import com.wbf.mutuelle.entities.Member;
-import com.wbf.mutuelle.entities.Repayment;
-import com.wbf.mutuelle.entities.Role;
+import com.wbf.mutuelle.entities.*;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +17,8 @@ public class LoanRequestService {
     private final LoanRequestRepository loanRequestRepository;
     private final MemberRepository memberRepository;
     private final MemberService memberService;
-    private final LoanAutoCreationService loanAutoCreationService; // ✅ NOUVEAU SERVICE
+    private final LoanAutoCreationService loanAutoCreationService;
+    private final TreasurerLoanService treasurerLoanService; // ✅ NOUVEAU SERVICE
 
     public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
@@ -46,39 +44,28 @@ public class LoanRequestService {
         loanRequest.setMember(member);
         loanRequest.setStatus("PENDING");
         loanRequest.setRequestDate(new Date());
-        loanRequest.setLoanCreated(false); // ✅ Initialiser à false
+        loanRequest.setLoanCreated(false);
+        loanRequest.setLoanGranted(false); // ✅ Initialiser à false
 
         return loanRequestRepository.save(loanRequest);
     }
 
-    // Méthodes d'approbation par rôle - MODIFIÉES POUR LA CRÉATION AUTOMATIQUE
+    // Méthodes d'approbation par rôle
     @Transactional
     public LoanRequest approveByPresident(Long loanRequestId, String comment) {
         LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.PRESIDENT, comment);
-
-        // ✅ VÉRIFIER ET CRÉER LE PRÊT AUTOMATIQUEMENT
-        loanAutoCreationService.checkAndCreateLoan(loanRequestId);
-
         return approvedRequest;
     }
 
     @Transactional
     public LoanRequest approveBySecretary(Long loanRequestId, String comment) {
         LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.SECRETARY, comment);
-
-        // ✅ VÉRIFIER ET CRÉER LE PRÊT AUTOMATIQUEMENT
-        loanAutoCreationService.checkAndCreateLoan(loanRequestId);
-
         return approvedRequest;
     }
 
     @Transactional
     public LoanRequest approveByTreasurer(Long loanRequestId, String comment) {
         LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.TREASURER, comment);
-
-        // ✅ VÉRIFIER ET CRÉER LE PRÊT AUTOMATIQUEMENT
-        loanAutoCreationService.checkAndCreateLoan(loanRequestId);
-
         return approvedRequest;
     }
 
@@ -172,6 +159,7 @@ public class LoanRequestService {
 
         // Réinitialiser le flag de création de prêt
         loanRequest.setLoanCreated(false);
+        loanRequest.setLoanGranted(false);
 
         return loanRequestRepository.save(loanRequest);
     }
@@ -458,5 +446,24 @@ public class LoanRequestService {
     @Transactional
     public void forceCreateLoanFromRequest(Long loanRequestId) {
         loanAutoCreationService.forceCreateLoan(loanRequestId);
+    }
+
+    // ✅ NOUVELLES MÉTHODES POUR LE TRÉSORIER
+    public List<LoanRequest> getApprovedPendingGrant() {
+        return treasurerLoanService.getApprovedPendingGrant();
+    }
+
+    public List<Loan> getGrantedLoans() {
+        return treasurerLoanService.getGrantedLoans();
+    }
+
+    @Transactional
+    public Loan grantLoan(Long loanRequestId, String comment) {
+        return treasurerLoanService.grantApprovedLoan(loanRequestId, comment);
+    }
+
+    @Transactional
+    public void cancelLoanGrant(Long loanRequestId, String reason) {
+        treasurerLoanService.cancelLoanGrant(loanRequestId, reason);
     }
 }
