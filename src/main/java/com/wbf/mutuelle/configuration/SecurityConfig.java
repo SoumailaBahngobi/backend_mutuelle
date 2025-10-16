@@ -36,81 +36,53 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Activer CORS
-
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Routes publiques (auth non requise)
                         .requestMatchers(
                                 "/mut/register",
                                 "/mut/login",
                                 "/mut/contribution_period/**",
-                                "/mut/contribution/**",
-                                "/mut/loan/**",  //  Tous les endpoints loan sont autorisés
                                 "/mut/contribution/upload/payment-proof/**",
                                 "/mut/contribution/upload/payment-proof/",
-                                "/mut/contribution/individual/my-contributions",
-                                "/mut/contribution/individual/**",
-                                "mut/contribution/individual/member/**",
-                                "/mut/admin/**",
                                 "/mut/event/**",
                                 "/mut/upload/**",
-                                "/mut/notification",
-                                "/mut/loans/**"
+                                "/mut/notification"
                         ).permitAll()
-                        .requestMatchers("/mut/loan-validator/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-                        .requestMatchers("/mut/loan_request/**").hasAnyRole("MEMBER","SECRETARY", "ADMIN","PRESIDENT","TREASURER")
-                        .requestMatchers("/mut/loan_request/approval/**", "/mut/loan_request/status/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-                        .requestMatchers("/mut/loan_request/all-with-approval", "/mut/loan_request/my-pending-approvals",
-                                "/mut/loan_request/validator-dashboard", "/mut/loan_request/*/approval-status")
-                        .hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+
+                        // Endpoints nécessitant des rôles de responsables (approbation de prêt, création de cotisation)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+
+                        // Autoriser explicitement la création de demandes de prêt aux utilisateurs authentifiés
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/loan_request").authenticated()
+
+                        // Autoriser les endpoints publics (en lecture) et l'inscription / login
+                        // Le endpoint d'upload de photo de profil doit être accessible aux utilisateurs authentifiés
+                        .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
+
+                        // Par défaut, les routes sous /mut/** requièrent une authentification
+                        .requestMatchers("/mut/register",
+                                "/mut/login",
+                                "/mut/contribution_period/**",
+                                "/mut/contribution/upload/payment-proof/**",
+                                "/mut/contribution/upload/payment-proof/",
+                                "/mut/event/**",
+                                "/mut/upload/**",
+                                "/mut/repayment",
+                                "/mut/notification",
+                                "/mut/loan_request/**",
+                                "/mut/loan_request/*/approve/**",
+                                "/mut/loan_request/*/reject/**",
+                                "/mut/loan",
+                                "/mut/loan/**",
+                                "/mut/repayment/**",
+                                "/mut/notification").permitAll()
+
+                        .requestMatchers("/mut/**").authenticated()
+
+                        // Toute autre requête externe doit être authentifiée
                         .anyRequest().authenticated()
-
-        .csrf(AbstractHttpConfigurer::disable)
-        .authorizeHttpRequests(auth -> auth
-            // Routes publiques (auth non requise)
-            .requestMatchers(
-                "/mut/register",
-                "/mut/login",
-                "/mut/contribution_period/**",
-                "/mut/contribution/upload/payment-proof/**",
-                "/mut/contribution/upload/payment-proof/",
-                "/mut/event/**",
-                "/mut/upload/**",
-                "/mut/notification"
-            ).permitAll()
-
-            // Endpoints nécessitant des rôles de responsables (approbation de prêt, création de cotisation)
-            .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-            .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-
-            // Autoriser explicitement la création de demandes de prêt aux utilisateurs authentifiés
-            .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/loan_request").authenticated()
-
-        // Autoriser les endpoints publics (en lecture) et l'inscription / login
-        // Le endpoint d'upload de photo de profil doit être accessible aux utilisateurs authentifiés
-        .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
-
-        // Par défaut, les routes sous /mut/** requièrent une authentification
-        .requestMatchers("/mut/register",
-            "/mut/login",
-            "/mut/contribution_period/**",
-            "/mut/contribution/upload/payment-proof/**",
-            "/mut/contribution/upload/payment-proof/",
-            "/mut/event/**",
-            "/mut/upload/**",
-            "/mut/repayment",
-            "/mut/notification",
-            "/mut/loan_request/**",
-            "/mut/loan_request/*/approve/**",
-            "/mut/loan_request/*/reject/**",
-            "/mut/loan",
-            "/mut/loan/**",
-            "/mut/repayment/**",
-            "/mut/notification").permitAll()
-
-        .requestMatchers("/mut/**").authenticated()
-
-        // Toute autre requête externe doit être authentifiée
-        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

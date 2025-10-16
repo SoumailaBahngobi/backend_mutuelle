@@ -20,10 +20,7 @@ public class LoanRequestService {
     private final LoanRequestRepository loanRequestRepository;
     private final MemberRepository memberRepository;
     private final MemberService memberService;
-
-    public List<LoanRequest> getAllLoanRequests() {
-        return loanRequestRepository.findAll();
-    }
+    private final LoanAutoCreationService loanAutoCreationService; // ✅ NOUVEAU SERVICE
 
     public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
@@ -31,11 +28,6 @@ public class LoanRequestService {
 
     public List<LoanRequest> getLoanRequestsByMemberId(Long memberId) {
         return loanRequestRepository.findByMemberId(memberId);
-    }
-
-    public List<LoanRequest> getAllLoanRequests() {
-        // Utiliser la nouvelle méthode avec JOIN FETCH
-        return loanRequestRepository.findAllWithMember();
     }
 
     public List<LoanRequest> getAllLoanRequests() {
@@ -423,9 +415,6 @@ public class LoanRequestService {
         return new Date(0); // Date très ancienne si pas d'approbation
     }
 
-<<<<<<< HEAD
-}
-=======
     public List<LoanRequest> getLoanRequestsByMemberEmail(String username) {
         return loanRequestRepository.findByMemberEmail(username);
     }
@@ -463,5 +452,11 @@ public class LoanRequestService {
 
         loanRequest.setRepayments(repayments);
         loanRequestRepository.save(loanRequest);
+    }
+
+    // ✅ NOUVELLE MÉTHODE : Forcer la création d'un prêt (pour administration)
+    @Transactional
+    public void forceCreateLoanFromRequest(Long loanRequestId) {
+        loanAutoCreationService.forceCreateLoan(loanRequestId);
     }
 }

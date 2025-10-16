@@ -5,12 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-<<<<<<< HEAD
-=======
 
 import java.io.Serializable;
 import java.util.List;
->>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 import java.util.Map;
 
 import java.math.BigDecimal;

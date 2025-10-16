@@ -142,10 +142,8 @@ public interface LoanRequestRepository extends JpaRepository<LoanRequest,Long> {
             "(:role = 'SECRETARY' AND lr.secretaryApproved = false) OR " +
             "(:role = 'TREASURER' AND lr.treasurerApproved = false)")
     List<LoanRequest> findPendingApprovalsByRole(@Param("role") String role);
-<<<<<<< HEAD
-=======
+
     List<LoanRequest> findByStatusAndIsRepaid(String status, Boolean isRepaid);
->>>>>>> cab43455d1c7321b3be4720b9866b944178a04ff
 
 
 }
