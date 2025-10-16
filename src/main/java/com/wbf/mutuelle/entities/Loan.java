@@ -73,13 +73,13 @@ public class Loan {
         // Calculer le total des remboursements effectués
         if (this.repayments != null && !this.repayments.isEmpty()) {
             totalRepaid = this.repayments.stream()
-                .filter(repayment -> repayment != null)
-                .filter(repayment -> repayment.getAmount() != null)
-                .filter(repayment -> repayment.getStatus() != null)
-                .filter(repayment -> "COMPLETED".equalsIgnoreCase(repayment.getStatus()) || 
-                                    "PAID".equalsIgnoreCase(repayment.getStatus()))
-                .map(Repayment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .filter(repayment -> repayment != null)
+                    .filter(repayment -> repayment.getAmount() != null)
+                    .filter(repayment -> repayment.getStatus() != null)
+                    .filter(repayment -> "COMPLETED".equalsIgnoreCase(repayment.getStatus()) ||
+                            "PAID".equalsIgnoreCase(repayment.getStatus()))
+                    .map(Repayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         // Calculer le montant total dû (capital + intérêts)
@@ -112,7 +112,7 @@ public class Loan {
 
         // Calculer les intérêts
         BigDecimal interest = this.amount.multiply(this.interestRate)
-                                       .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
         // Retourner capital + intérêts
         return this.amount.add(interest);
@@ -175,19 +175,19 @@ public class Loan {
         BigDecimal totalRepaid = BigDecimal.ZERO;
         if (this.repayments != null && !this.repayments.isEmpty()) {
             totalRepaid = this.repayments.stream()
-                .filter(repayment -> repayment != null && repayment.getAmount() != null)
-                .filter(repayment -> repayment.getStatus() != null)
-                .filter(repayment -> "COMPLETED".equalsIgnoreCase(repayment.getStatus()) || 
-                                    "PAID".equalsIgnoreCase(repayment.getStatus()))
-                .map(Repayment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .filter(repayment -> repayment != null && repayment.getAmount() != null)
+                    .filter(repayment -> repayment.getStatus() != null)
+                    .filter(repayment -> "COMPLETED".equalsIgnoreCase(repayment.getStatus()) ||
+                            "PAID".equalsIgnoreCase(repayment.getStatus()))
+                    .map(Repayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         BigDecimal percentage = totalRepaid.multiply(BigDecimal.valueOf(100))
-                                         .divide(totalDue, 2, RoundingMode.HALF_UP);
+                .divide(totalDue, 2, RoundingMode.HALF_UP);
 
-        return percentage.compareTo(BigDecimal.valueOf(100)) > 0 ? 
-               BigDecimal.valueOf(100) : percentage;
+        return percentage.compareTo(BigDecimal.valueOf(100)) > 0 ?
+                BigDecimal.valueOf(100) : percentage;
     }
 
     @Override

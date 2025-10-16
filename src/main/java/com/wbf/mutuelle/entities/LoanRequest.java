@@ -93,18 +93,25 @@ public class LoanRequest {
     @Column(name = "loan_created")
     private Boolean loanCreated = false;
 
+    // ✅ NOUVEAUX CHAMPS : Gestion par le trésorier
+    @Column(name = "loan_granted")
+    private Boolean loanGranted = false;
+
+    @Column(name = "loan_granted_date")
+    private Date loanGrantedDate;
+
+    @Column(name = "treasurer_grant_comment")
+    private String treasurerGrantComment;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
     // Méthodes utilitaires
     public Boolean isFullyApproved() {
-    // A request is fully approved when all three responsible roles have approved it.
-    // Do NOT depend on the status field here (circular dependency). The status is
-    // set to APPROVED by the service when this method returns true.
-    return Boolean.TRUE.equals(presidentApproved) &&
-        Boolean.TRUE.equals(secretaryApproved) &&
-        Boolean.TRUE.equals(treasurerApproved);
+        return Boolean.TRUE.equals(presidentApproved) &&
+                Boolean.TRUE.equals(secretaryApproved) &&
+                Boolean.TRUE.equals(treasurerApproved);
     }
 
     public Boolean hasAnyApproval() {
@@ -141,5 +148,14 @@ public class LoanRequest {
 
     public List<Repayment> getRepayments() {
         return repayments;
+    }
+
+    // ✅ NOUVELLE MÉTHODE : Vérifier si le prêt peut être accordé
+    public Boolean canBeGranted() {
+        return "APPROVED".equals(this.status) &&
+                Boolean.TRUE.equals(this.presidentApproved) &&
+                Boolean.TRUE.equals(this.secretaryApproved) &&
+                Boolean.TRUE.equals(this.treasurerApproved) &&
+                !Boolean.TRUE.equals(this.loanGranted);
     }
 }

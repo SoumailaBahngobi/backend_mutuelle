@@ -38,4 +38,8 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     // Trouver les prêts par taux d'intérêt
     List<Loan> findByInterestRateGreaterThan(BigDecimal interestRate);
+
+    // ✅ NOUVELLE MÉTHODE : Trouver les prêts accordés (avec demande accordée)
+    @Query("SELECT l FROM Loan l WHERE l.loanRequest.loanGranted = true")
+    List<Loan> findGrantedLoans();
 }

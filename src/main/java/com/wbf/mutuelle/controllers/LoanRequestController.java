@@ -2,6 +2,7 @@ package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.dto.ApprovalRequest;
 import com.wbf.mutuelle.entities.LoanRequest;
+import com.wbf.mutuelle.entities.Loan;
 import com.wbf.mutuelle.entities.Repayment;
 import com.wbf.mutuelle.services.LoanRequestService;
 import org.springframework.http.ResponseEntity;
@@ -244,15 +245,15 @@ public class LoanRequestController {
 
 
     @GetMapping("/{id}/repayments")
-    /*public List<Repayment> getLoanRequestRepayments(@PathVariable Long id) {
-        return repaymentService.getRepaymentsByLoanRequest(id);
-    }*/
     public List<Repayment> getLoanRequestRepayments(@PathVariable Long id) {
         return loanRequestService.getRepaymentsByLoanRequest(id);
     }
 
     @GetMapping("/approved")
+<<<<<<< HEAD
 
+=======
+>>>>>>> 847cba4f86222342fda1873e2b7bf8dfd994d912
     public List<LoanRequest> getApprovedLoans() {
         return loanRequestService.getApprovedLoans();
     }
@@ -267,4 +268,61 @@ public class LoanRequestController {
         }
     }
 
+    // ✅ NOUVEAUX ENDPOINTS POUR LE TRÉSORIER
+    @GetMapping("/treasurer/pending-grant")
+    public ResponseEntity<List<LoanRequest>> getApprovedPendingGrant() {
+        try {
+            List<LoanRequest> pendingGrants = loanRequestService.getApprovedPendingGrant();
+            return ResponseEntity.ok(pendingGrants);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @GetMapping("/treasurer/granted-loans")
+    public ResponseEntity<List<Loan>> getGrantedLoans() {
+        try {
+            List<Loan> grantedLoans = loanRequestService.getGrantedLoans();
+            return ResponseEntity.ok(grantedLoans);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @PostMapping("/{id}/treasurer/grant")
+    public ResponseEntity<?> grantLoan(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String comment = request.get("comment");
+            Loan grantedLoan = loanRequestService.grantLoan(id, comment);
+            return ResponseEntity.ok(grantedLoan);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/treasurer/cancel-grant")
+    public ResponseEntity<?> cancelLoanGrant(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String reason = request.get("reason");
+            loanRequestService.cancelLoanGrant(id, reason);
+            return ResponseEntity.ok().body(Map.of("message", "Accord de prêt annulé avec succès"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/treasurer/dashboard")
+    public ResponseEntity<Map<String, Object>> getTreasurerDashboard() {
+        try {
+            Map<String, Object> dashboard = Map.of(
+                    "pendingGrants", loanRequestService.getApprovedPendingGrant().size(),
+                    "grantedLoans", loanRequestService.getGrantedLoans().size(),
+                    "pendingGrantsList", loanRequestService.getApprovedPendingGrant(),
+                    "grantedLoansList", loanRequestService.getGrantedLoans()
+            );
+            return ResponseEntity.ok(dashboard);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }
