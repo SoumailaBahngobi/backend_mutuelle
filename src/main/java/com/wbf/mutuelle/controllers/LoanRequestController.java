@@ -250,10 +250,7 @@ public class LoanRequestController {
     }
 
     @GetMapping("/approved")
-<<<<<<< HEAD
 
-=======
->>>>>>> 847cba4f86222342fda1873e2b7bf8dfd994d912
     public List<LoanRequest> getApprovedLoans() {
         return loanRequestService.getApprovedLoans();
     }

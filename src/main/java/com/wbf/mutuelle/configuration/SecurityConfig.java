@@ -54,7 +54,6 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/contribution/**").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
                         .requestMatchers("/mut/loan_request/*/approve/**", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
 
-<<<<<<< HEAD
                         // Autoriser explicitement la création de demandes de prêt aux utilisateurs authentifiés
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/mut/loan_request").authenticated()
 
@@ -82,7 +81,6 @@ public class SecurityConfig {
 
                         .requestMatchers("/mut/**").authenticated()
 
-=======
                         // ✅ Endpoints spécifiques pour le trésorier
                         .requestMatchers("/mut/treasurer/**").hasRole("TREASURER")
                         .requestMatchers("/mut/loan_request/treasurer/**").hasRole("TREASURER")
@@ -114,7 +112,6 @@ public class SecurityConfig {
 
                         .requestMatchers("/mut/**").authenticated()
 
->>>>>>> 847cba4f86222342fda1873e2b7bf8dfd994d912
                         // Toute autre requête externe doit être authentifiée
                         .anyRequest().authenticated()
                 )
