@@ -1,23 +1,23 @@
 package com.wbf.mutuelle.controllers;
+
 import com.wbf.mutuelle.services.PasswordResetService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
 @RestController
-
-
+@RequiredArgsConstructor
+@RequestMapping("/mut/password")
 public class PasswordResetController {
-   // @Autowired
-    private PasswordResetService passwordResetService;
 
-    @PostMapping("/reset_all_passwords")
+    private final PasswordResetService passwordResetService;
+
+    @PostMapping("/reset-all")
     public String resetAllPasswords() {
         passwordResetService.resetAllPasswordsToBCrypt();
         return "Tous les mots de passe ont été réinitialisés en BCrypt";
     }
 
-    @PostMapping("/reset_password")
+    @PostMapping("/reset")
     public String resetPassword(
             @RequestParam String email,
             @RequestParam String newPassword) {

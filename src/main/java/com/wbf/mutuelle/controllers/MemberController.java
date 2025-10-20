@@ -1,7 +1,11 @@
 package com.wbf.mutuelle.controllers;
 
+import com.wbf.mutuelle.dto.ForgotPasswordRequest;
+import com.wbf.mutuelle.dto.MessageResponse;
+import com.wbf.mutuelle.dto.ResetPasswordRequest;
 import com.wbf.mutuelle.entities.Member;
 import com.wbf.mutuelle.services.MemberService;
+import com.wbf.mutuelle.services.PasswordResetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +32,7 @@ import java.util.Map;
 public class MemberController {
     private final MemberService memberService;
     private final String UPLOAD_DIR = "./uploads/profile-images/";
+    private final PasswordResetService passwordResetService;
 
     @GetMapping("/profile")
     public ResponseEntity<Member> getProfile() {
@@ -194,4 +199,72 @@ public class MemberController {
             return ResponseEntity.badRequest().body(false);
         }
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        try {
+            String email = request.getEmail();
+
+            // Vérifier si le membre existe
+            Member member = memberService.getMemberByEmail(email)
+                    .orElse(null);
+
+            if (member == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new MessageResponse("Aucun compte trouvé avec cette adresse email"));
+            }
+
+            // Générer et envoyer le token de réinitialisation
+            passwordResetService.generateAndSendResetToken(member);
+
+            return ResponseEntity.ok(new MessageResponse("Un email de réinitialisation a été envoyé à votre adresse"));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Erreur lors du traitement de votre demande"));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        try {
+            String token = request.getToken();
+            String newPassword = request.getNewPassword();
+
+            // Valider et traiter la réinitialisation
+            boolean success = passwordResetService.resetPasswordWithToken(token, newPassword);
+
+            if (success) {
+                return ResponseEntity.ok(new MessageResponse("Mot de passe réinitialisé avec succès"));
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new MessageResponse("Token invalide ou expiré"));
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Erreur lors de la réinitialisation du mot de passe"));
+        }
+    }
+
+    @PostMapping("/validate-reset-token")
+    public ResponseEntity<?> validateResetToken(@RequestParam String token) {
+        try {
+            boolean isValid = passwordResetService.validateResetToken(token);
+
+            if (isValid) {
+                return ResponseEntity.ok(new MessageResponse("Token valide"));
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new MessageResponse("Token invalide ou expiré"));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Erreur lors de la validation du token"));
+        }
+    }
+
 }

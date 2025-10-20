@@ -50,7 +50,8 @@ public class SecurityConfig {
                                 "/mut/member/profile/photo",
                                 "/mut/notification",
                                 "/mut/contribution/individual",
-                                "/mut/member/profile/update"
+                                "/mut/member/profile/update",
+                                "/mut/member/forgot-password"
                         ).permitAll()
 
                         // ✅ CORRECTION : Permettre à tous les utilisateurs authentifiés de faire des cotisations

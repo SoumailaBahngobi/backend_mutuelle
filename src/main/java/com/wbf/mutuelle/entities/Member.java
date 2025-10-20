@@ -39,6 +39,58 @@ public class Member {
     @Column(name = "is_regular")
     private Boolean isRegular = false;
 
+    public Boolean getHasPreviousDebt() {
+        return hasPreviousDebt;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getNpi() {
+        return npi;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public String getProfileImage() {
+        return profileImage;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public String getSubscriptionStatus() {
+        return subscriptionStatus;
+    }
+
+    public LocalDate getLastSubscriptionDate() {
+        return lastSubscriptionDate;
+    }
+
+    public Boolean getRegular() {
+        return isRegular;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
     @Column(name = "has_previous_debt")
     private Boolean hasPreviousDebt = false;
 
