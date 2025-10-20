@@ -92,6 +92,34 @@ public class MemberController {
         }
     }
 
+    @PutMapping("/profile/update")
+    public ResponseEntity<Member> updateProfile(@RequestBody Member memberDetails) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String email = authentication.getName();
+            Member member = memberService.getMemberByEmail(email).orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+
+            member.setName(memberDetails.getName());
+            member.setFirstName(memberDetails.getFirstName());
+            member.setPhone(memberDetails.getPhone());
+            member.setNpi(memberDetails.getNpi());
+            member.setPassword(memberDetails.getPassword());
+            member.setEmail(memberDetails.getEmail());
+            member.setRole(memberDetails.getRole());
+            
+            // add other fields as necessary
+
+            Member updatedMember = memberService.updateMember(member.getId(), member);
+            return ResponseEntity.ok(updatedMember);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @GetMapping
     public List<Member> getAllMembers() {
         return memberService.getAllMembers();
@@ -166,5 +194,4 @@ public class MemberController {
             return ResponseEntity.badRequest().body(false);
         }
     }
-    
 }

@@ -46,8 +46,11 @@ public class SecurityConfig {
                                 "/mut/contribution/upload/payment-proof/**",
                                 "/mut/event/**",
                                 "/mut/upload/**",
+                                "/mut/member/upload-profile",
+                                "/mut/member/profile/photo",
                                 "/mut/notification",
-                                "/mut/contribution/individual"
+                                "/mut/contribution/individual",
+                                "/mut/member/profile/update"
                         ).permitAll()
 
                         // ✅ CORRECTION : Permettre à tous les utilisateurs authentifiés de faire des cotisations
