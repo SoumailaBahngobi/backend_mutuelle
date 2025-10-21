@@ -28,6 +28,169 @@ public class PasswordResetService {
     private String frontendUrl;
 
     @Transactional
+    public void generateAndSendResetToken(Member member) {
+        try {
+            log.info("Génération du token pour le membre: {}", member.getEmail());
+
+            // Supprimer les tokens existants
+            PasswordResetToken existingToken = passwordResetTokenRepository.findByMember(member);
+            if (existingToken != null) {
+                passwordResetTokenRepository.delete(existingToken);
+                passwordResetTokenRepository.flush();
+            }
+
+            // Générer un nouveau token
+            String token = UUID.randomUUID().toString();
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setToken(token);
+            resetToken.setMember(member);
+            resetToken.setExpiryDate(LocalDateTime.now().plusHours(24));
+
+            passwordResetTokenRepository.save(resetToken);
+            log.info("Token généré avec succès pour: {}", member.getEmail());
+
+            // Envoyer l'email
+            sendPasswordResetEmail(member, token);
+
+        } catch (Exception e) {
+            log.error("Erreur lors de la génération du token pour {}: {}", member.getEmail(), e.getMessage());
+            throw new RuntimeException("Erreur lors de la génération du token de réinitialisation", e);
+        }
+    }
+
+    private void sendPasswordResetEmail(Member member, String token) {
+        try {
+            String resetLink = frontendUrl + "/reset-password?token=" + token;
+
+            // ✅ SOLUTION SIMPLE : Affichage clair + ouverture navigateur
+            displayResetLink(member, resetLink, token);
+
+            // ✅ OPTIONNEL : Essayer d'ouvrir dans le navigateur
+            openInBrowser(resetLink);
+
+        } catch (Exception e) {
+            log.error("Erreur lors de l'envoi de l'email: {}", e.getMessage());
+        }
+    }
+
+    private void displayResetLink(Member member, String resetLink, String token) {
+        // Affichage très visible dans la console
+        System.out.println("\n\n");
+        System.out.println("🚀 " + "=".repeat(70));
+        System.out.println("🚀 RÉINITIALISATION DE MOT DE PASSE - LIEN DISPONIBLE");
+        System.out.println("🚀 " + "=".repeat(70));
+        System.out.println("📧 Destinataire: " + member.getEmail());
+        System.out.println("👤 Utilisateur: " + member.getFirstName() + " " + member.getName());
+        System.out.println("🔗 LIEN DIRECT: " + resetLink);
+        System.out.println("🔑 Token: " + token);
+        System.out.println("⏰ Expire le: " + LocalDateTime.now().plusHours(24));
+        System.out.println("🚀 " + "=".repeat(70));
+        System.out.println("💡 Copiez le lien ci-dessus dans votre navigateur pour tester");
+        System.out.println("🚀 " + "=".repeat(70));
+        System.out.println("\n\n");
+
+        // Logs standards
+        log.info("Lien de réinitialisation généré pour {}: {}", member.getEmail(), resetLink);
+    }
+
+    private void openInBrowser(String url) {
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            Runtime rt = Runtime.getRuntime();
+
+            if (os.contains("win")) {
+                // Windows
+                rt.exec("cmd /c start " + url);
+            } else if (os.contains("mac")) {
+                // macOS
+                rt.exec("open " + url);
+            } else if (os.contains("nix") || os.contains("nux")) {
+                // Linux/Unix
+                rt.exec(new String[]{"xdg-open", url});
+            }
+            log.info("✅ Navigateur ouvert avec le lien de réinitialisation");
+        } catch (Exception e) {
+            log.info("ℹ️  Lien affiché dans la console - copiez-le manuellement");
+        }
+    }
+
+    @Transactional
+    public boolean resetPasswordWithToken(String token, String newPassword) {
+        try {
+            log.info("Tentative de réinitialisation avec token: {}", token);
+
+            PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
+
+            if (resetToken == null) {
+                log.error("Token non trouvé: {}", token);
+                return false;
+            }
+
+            if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+                log.error("Token expiré: {}", token);
+                passwordResetTokenRepository.delete(resetToken);
+                return false;
+            }
+
+            Member member = resetToken.getMember();
+            member.setPassword(passwordEncoder.encode(newPassword));
+            memberRepository.save(member);
+
+            passwordResetTokenRepository.delete(resetToken);
+
+            log.info("Mot de passe réinitialisé avec succès pour: {}", member.getEmail());
+            return true;
+
+        } catch (Exception e) {
+            log.error("Erreur lors de la réinitialisation du mot de passe: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean validateResetToken(String token) {
+        try {
+            PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
+            if (resetToken == null) {
+                log.warn("Token non trouvé: {}", token);
+                return false;
+            }
+
+            boolean isValid = resetToken.getExpiryDate().isAfter(LocalDateTime.now());
+            if (!isValid) {
+                log.warn("Token expiré: {}", token);
+                passwordResetTokenRepository.delete(resetToken);
+            }
+
+            log.info("Validation du token {}: {}", token, isValid ? "VALIDE" : "INVALIDE");
+            return isValid;
+
+        } catch (Exception e) {
+            log.error("Erreur lors de la validation du token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public Member getMemberByEmail(String email) {
+        return memberRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Membre non trouvé avec l'email: " + email));
+    }
+
+    // ✅ NOUVELLE MÉTHODE : Récupérer le membre par token
+    public Member getMemberByResetToken(String token) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
+        if (resetToken == null) {
+            throw new RuntimeException("Token non trouvé");
+        }
+
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new RuntimeException("Token expiré");
+        }
+
+        return resetToken.getMember();
+    }
+
+    @Transactional
     public void resetAllPasswordsToBCrypt() {
         List<Member> members = memberRepository.findAll();
 
@@ -52,125 +215,5 @@ public class PasswordResetService {
         memberRepository.save(member);
 
         log.info("Mot de passe réinitialisé pour: {}", email);
-    }
-
-    @Transactional
-    public void generateAndSendResetToken(Member member) {
-        try {
-            log.info("Génération du token pour le membre: {}", member.getEmail());
-
-            // Supprimer les tokens existants pour ce membre
-            passwordResetTokenRepository.deleteByMember(member);
-
-            // Générer un nouveau token
-            String token = UUID.randomUUID().toString();
-            PasswordResetToken resetToken = new PasswordResetToken();
-            resetToken.setToken(token);
-            resetToken.setMember(member);
-            resetToken.setExpiryDate(LocalDateTime.now().plusHours(24)); // 24 heures
-
-            passwordResetTokenRepository.save(resetToken);
-            log.info("Token généré avec succès pour: {}", member.getEmail());
-
-            // Envoyer l'email (simulation pour le moment)
-            sendPasswordResetEmail(member, token);
-
-        } catch (Exception e) {
-            log.error("Erreur lors de la génération du token pour {}: {}", member.getEmail(), e.getMessage());
-            throw new RuntimeException("Erreur lors de la génération du token de réinitialisation", e);
-        }
-    }
-
-    @Transactional
-    public boolean resetPasswordWithToken(String token, String newPassword) {
-        try {
-            log.info("Tentative de réinitialisation avec token: {}", token);
-
-            PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
-
-            if (resetToken == null) {
-                log.error("Token non trouvé: {}", token);
-                return false;
-            }
-
-            if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-                log.error("Token expiré: {}", token);
-                passwordResetTokenRepository.delete(resetToken);
-                return false;
-            }
-
-            // Mettre à jour le mot de passe
-            Member member = resetToken.getMember();
-            member.setPassword(passwordEncoder.encode(newPassword));
-            memberRepository.save(member);
-
-            // Supprimer le token utilisé
-            passwordResetTokenRepository.delete(resetToken);
-
-            log.info("Mot de passe réinitialisé avec succès pour: {}", member.getEmail());
-            return true;
-
-        } catch (Exception e) {
-            log.error("Erreur lors de la réinitialisation du mot de passe: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    public boolean validateResetToken(String token) {
-        try {
-            PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
-            if (resetToken == null) {
-                log.warn("Token non trouvé: {}", token);
-                return false;
-            }
-
-            boolean isValid = resetToken.getExpiryDate().isAfter(LocalDateTime.now());
-            if (!isValid) {
-                log.warn("Token expiré: {}", token);
-                // Supprimer le token expiré
-                passwordResetTokenRepository.delete(resetToken);
-            }
-
-            log.info("Validation du token {}: {}", token, isValid ? "VALIDE" : "INVALIDE");
-            return isValid;
-
-        } catch (Exception e) {
-            log.error("Erreur lors de la validation du token: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    private void sendPasswordResetEmail(Member member, String token) {
-        try {
-            String resetLink = frontendUrl + "/reset-password?token=" + token;
-
-            // Simulation d'envoi d'email - À remplacer par un vrai service d'email
-            log.info("=== EMAIL DE RÉINITIALISATION ===");
-            log.info("À: {}", member.getEmail());
-            log.info("Sujet: Réinitialisation de votre mot de passe");
-            log.info("Lien: {}", resetLink);
-            log.info("Token (pour test): {}", token);
-            log.info("===============================");
-
-            // Affichage console pour le développement
-            System.out.println("\n" + "=".repeat(50));
-            System.out.println("EMAIL DE RÉINITIALISATION DE MOT DE PASSE");
-            System.out.println("=".repeat(50));
-            System.out.println("Destinataire: " + member.getEmail());
-            System.out.println("Nom: " + member.getFirstName() + " " + member.getName());
-            System.out.println("Lien de réinitialisation: " + resetLink);
-            System.out.println("Token (pour test direct): " + token);
-            System.out.println("Ce lien expire le: " + LocalDateTime.now().plusHours(24));
-            System.out.println("=".repeat(50) + "\n");
-
-        } catch (Exception e) {
-            log.error("Erreur lors de l'envoi simulé de l'email: {}", e.getMessage());
-        }
-    }
-
-    // Méthode utilitaire pour obtenir un membre par email
-    public Member getMemberByEmail(String email) {
-        return memberRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Membre non trouvé avec l'email: " + email));
     }
 }

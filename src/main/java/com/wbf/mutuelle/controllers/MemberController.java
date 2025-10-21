@@ -267,4 +267,22 @@ public class MemberController {
         }
     }
 
+    @GetMapping("/validate-token")
+    public ResponseEntity<?> validateToken(@RequestParam String token) {
+        try {
+            boolean isValid = passwordResetService.validateResetToken(token);
+
+            if (isValid) {
+                return ResponseEntity.ok(Map.of("valid", true, "message", "Token valide"));
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("valid", false, "message", "Token invalide ou expiré"));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("valid", false, "message", "Erreur lors de la validation du token"));
+        }
+    }
+
 }

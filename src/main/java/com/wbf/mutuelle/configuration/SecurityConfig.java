@@ -51,7 +51,8 @@ public class SecurityConfig {
                                 "/mut/notification",
                                 "/mut/contribution/individual",
                                 "/mut/member/profile/update",
-                                "/mut/member/forgot-password"
+                                "/mut/member/forgot-password",
+                                "/mut/member/reset-password" // ✅ AJOUT: Permettre la réinitialisation de mot de passe
                         ).permitAll()
 
                         // ✅ CORRECTION : Permettre à tous les utilisateurs authentifiés de faire des cotisations
@@ -69,6 +70,9 @@ public class SecurityConfig {
 
                         // Création de demandes de prêt pour utilisateurs authentifiés
                         .requestMatchers(HttpMethod.POST, "/mut/loan_request").authenticated()
+
+                        // Consultation des demandes de prêt pour utilisateurs authentifiés
+                        .requestMatchers(HttpMethod.GET, "/mut/loan_request/**").authenticated()
 
                         // Par défaut, toutes les autres routes sous /mut/** requièrent une authentification
                         .requestMatchers("/mut/**").authenticated()
