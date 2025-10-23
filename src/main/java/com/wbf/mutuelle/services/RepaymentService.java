@@ -7,6 +7,7 @@ import com.wbf.mutuelle.repositories.RepaymentRepository;
 import com.wbf.mutuelle.repositories.LoanRepository;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,9 @@ public class RepaymentService {
     private final LoanRequestRepository loanRequestRepository;
     private final LoanRepository loanRepository;
     private final NotificationService notificationService;
+    private final ExportService exportService;
 
-    public List<Repayment> getAllRepayments() {
+    public List<Repayment> getAllRepayments(Pageable pageable) {
         return repaymentRepository.findAll();
     }
 
@@ -36,6 +38,10 @@ public class RepaymentService {
 
     public List<Repayment> getRepaymentsByLoanRequest(Long loanRequestId) {
         return repaymentRepository.findByLoanRequestId(loanRequestId);
+    }
+
+    public List<Repayment> getRepaymentsByLoan(Long loanId) {
+        return repaymentRepository.findByLoanId(loanId);
     }
 
     @Transactional
@@ -53,6 +59,7 @@ public class RepaymentService {
             }
 
             Repayment saved = repaymentRepository.save(repayment);
+
             // If fully repaid, update loanRequest
             if (getTotalRepaidAmount(loanRequest.getId()).compareTo(loanRequest.getRequestAmount()) >= 0) {
                 loanRequest.setIsRepaid(true);
@@ -100,11 +107,9 @@ public class RepaymentService {
 
     @Transactional
     public void generateRepaymentSchedule(LoanRequest loanRequest) {
-        // Générer le plan de remboursement pour une demande de prêt approuvée
-        //BigDecimal loanAmount = loanRequest.getAmount();
         BigDecimal loanAmount = loanRequest.getRequestAmount();
         Integer duration = loanRequest.getDuration(); // en mois
-    BigDecimal monthlyAmount = loanAmount.divide(BigDecimal.valueOf(duration), 2, RoundingMode.HALF_UP);
+        BigDecimal monthlyAmount = loanAmount.divide(BigDecimal.valueOf(duration), 2, RoundingMode.HALF_UP);
 
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(new Date()); // Date de début = aujourd'hui
@@ -116,6 +121,7 @@ public class RepaymentService {
             repayment.setAmount(monthlyAmount);
             repayment.setDueDate(calendar.getTime());
             repayment.setInstallmentNumber(i);
+            repayment.setTotalInstallments(duration);
             repayment.setStatus("PENDING");
             repayment.setLoanRequest(loanRequest);
 
@@ -124,7 +130,7 @@ public class RepaymentService {
     }
 
     @Transactional
-    public Repayment processRepayment(Long repaymentId, BigDecimal amountPaid) {
+    public Repayment processRepayment(Long repaymentId, BigDecimal amountPaid, String paymentMethod, String transactionReference) {
         Repayment repayment = repaymentRepository.findById(repaymentId)
                 .orElseThrow(() -> new RuntimeException("Remboursement non trouvé"));
 
@@ -135,6 +141,8 @@ public class RepaymentService {
         if (amountPaid.compareTo(repayment.getAmount()) >= 0) {
             repayment.setStatus("PAID");
             repayment.setRepaymentDate(new Date());
+            repayment.setPaymentMethod(paymentMethod);
+            repayment.setTransactionReference(transactionReference);
 
             // Si paiement supérieur au montant dû, gérer l'excédent
             if (amountPaid.compareTo(repayment.getAmount()) > 0) {
@@ -151,7 +159,12 @@ public class RepaymentService {
             throw new RuntimeException("Le montant payé est inférieur au montant dû");
         }
 
-        return repaymentRepository.save(repayment);
+        Repayment savedRepayment = repaymentRepository.save(repayment);
+
+        // Update associated loan or loan request status
+        updateAssociatedEntityStatus(repayment);
+
+        return savedRepayment;
     }
 
     @Transactional
@@ -197,11 +210,11 @@ public class RepaymentService {
 
         repaymentRepository.save(repayment);
 
-    loan.getRepayments().add(repayment);
-    loan.updateRepaymentStatus();
-    loanRepository.save(loan);
+        loan.getRepayments().add(repayment);
+        loan.updateRepaymentStatus();
+        loanRepository.save(loan);
 
-    if (Boolean.TRUE.equals(loan.getIsRepaid())) {
+        if (Boolean.TRUE.equals(loan.getIsRepaid())) {
             if (loan.getLoanRequest() != null) {
                 LoanRequest lr = loan.getLoanRequest();
                 lr.setIsRepaid(true);
@@ -262,6 +275,21 @@ public class RepaymentService {
         }
     }
 
+    private void updateAssociatedEntityStatus(Repayment repayment) {
+        if (repayment.getLoanRequest() != null) {
+            LoanRequest loanRequest = repayment.getLoanRequest();
+            BigDecimal totalRepaid = getTotalRepaidAmount(loanRequest.getId());
+            if (totalRepaid.compareTo(loanRequest.getRequestAmount()) >= 0) {
+                loanRequest.setIsRepaid(true);
+                loanRequestRepository.save(loanRequest);
+            }
+        } else if (repayment.getLoan() != null) {
+            Loan loan = repayment.getLoan();
+            loan.updateRepaymentStatus();
+            loanRepository.save(loan);
+        }
+    }
+
     public BigDecimal getTotalRepaidAmount(Long loanRequestId) {
         BigDecimal total = repaymentRepository.getTotalRepaidAmount(loanRequestId);
         return total != null ? total : BigDecimal.ZERO;
@@ -272,7 +300,6 @@ public class RepaymentService {
                 .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
 
         BigDecimal totalRepaid = getTotalRepaidAmount(loanRequestId);
-       // return loanRequest.getAmount().subtract(totalRepaid);
         return loanRequest.getRequestAmount().subtract(totalRepaid);
     }
 
@@ -284,11 +311,134 @@ public class RepaymentService {
         repayment.setStatus(repaymentDetails.getStatus());
         repayment.setDueDate(repaymentDetails.getDueDate());
         repayment.setRepaymentDate(repaymentDetails.getRepaymentDate());
+        repayment.setPaymentMethod(repaymentDetails.getPaymentMethod());
+        repayment.setTransactionReference(repaymentDetails.getTransactionReference());
 
         return repaymentRepository.save(repayment);
     }
 
     public void deleteRepayment(Long id) {
         repaymentRepository.deleteById(id);
+    }
+
+    public List<Repayment> getRepaymentHistory(List<String> statuses, Long memberId) {
+        // Vérifications de sécurité
+        boolean hasStatusFilter = statuses != null && !statuses.isEmpty();
+        boolean hasMemberFilter = memberId != null;
+
+        if (hasStatusFilter && hasMemberFilter) {
+            // Cas 1: Filtre par statuts ET membre
+            return repaymentRepository.findByStatusInAndLoanRequestMemberIdOrLoanMemberId(statuses, memberId);
+        } else if (hasStatusFilter) {
+            // Cas 2: Filtre seulement par statuts
+            return repaymentRepository.findByStatusIn(statuses);
+        } else if (hasMemberFilter) {
+            // Cas 3: Filtre seulement par membre
+            return repaymentRepository.findByLoanRequestMemberIdOrLoanMemberId(memberId);
+        } else {
+            // Cas 4: Aucun filtre
+            return repaymentRepository.findAll();
+        }
+    }
+
+    public byte[] exportRepaymentsToPdf(List<Repayment> repayments) {
+        try {
+            return exportService.exportToPdf(repayments, "Historique des Remboursements");
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'export PDF", e);
+        }
+    }
+
+    public byte[] exportRepaymentsToExcel(List<Repayment> repayments) {
+        try {
+            return exportService.exportToExcel(repayments, "Historique des Remboursements");
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'export Excel", e);
+        }
+    }
+
+    public byte[] exportRepaymentsToCsv(List<Repayment> repayments) {
+        try {
+            return exportService.exportToCsv(repayments);
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'export CSV", e);
+        }
+    }
+
+    // Méthodes supplémentaires utiles
+    public List<Repayment> getOverdueRepayments() {
+        return repaymentRepository.findByStatusAndDueDateBefore("PENDING", new Date());
+    }
+
+    public List<Repayment> getRepaymentsByMember(Long memberId) {
+        return repaymentRepository.findByLoanRequestMemberIdOrLoanMemberId(memberId);
+    }
+
+    public List<Repayment> getRepaymentsByStatus(String status) {
+        return repaymentRepository.findByStatus(status);
+    }
+
+    @Transactional
+    public void markOverdueRepayments() {
+        List<Repayment> overdueRepayments = repaymentRepository.findByStatusAndDueDateBefore("PENDING", new Date());
+        for (Repayment repayment : overdueRepayments) {
+            repayment.setStatus("OVERDUE");
+            repaymentRepository.save(repayment);
+
+            // Notifier le membre
+            if (repayment.getLoanRequest() != null && repayment.getLoanRequest().getMember() != null) {
+                notificationService.notifyRepaymentStatusChange(
+                        repayment.getLoanRequest().getMember().getEmail(),
+                        "OVERDUE",
+                        "Remboursement en retard: " + repayment.getAmount()
+                );
+            } else if (repayment.getLoan() != null && repayment.getLoan().getMember() != null) {
+                notificationService.notifyRepaymentStatusChange(
+                        repayment.getLoan().getMember().getEmail(),
+                        "OVERDUE",
+                        "Remboursement en retard: " + repayment.getAmount()
+                );
+            }
+        }
+    }
+
+    public BigDecimal getTotalRepaidAmountByMember(Long memberId) {
+        BigDecimal total = repaymentRepository.getTotalRepaidAmountByMember(memberId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getPendingAmountByMember(Long memberId) {
+        BigDecimal total = repaymentRepository.getPendingAmountByMember(memberId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
+
+    public List<Repayment> getRepaymentsWithFilters(Long loanRequestId, Long loanId, String status, Long memberId, Pageable pageable) {
+        return repaymentRepository.findWithFilters(loanRequestId, loanId, status, memberId);
+    }
+
+    public BigDecimal getTotalRepaidAmountByPeriod(Date startDate, Date endDate) {
+        BigDecimal total = repaymentRepository.getTotalRepaidAmountByPeriod(startDate, endDate);
+        return total != null ? total : BigDecimal.ZERO;
+    }
+
+    public Optional<Repayment> getNextDueRepaymentByMember(Long memberId) {
+        List<Repayment> nextRepayments = repaymentRepository.findNextDueRepaymentByMember(memberId);
+        return nextRepayments.stream().findFirst();
+    }
+
+    public boolean isTransactionReferenceExists(String transactionReference) {
+        return repaymentRepository.existsByTransactionReference(transactionReference);
+    }
+
+    public List<Repayment> getRepaymentsByLoanRequestAndStatus(Long loanRequestId, String status) {
+        return repaymentRepository.findByLoanRequestIdAndStatus(loanRequestId, status);
+    }
+
+    public List<Repayment> getRepaymentsByLoanAndStatus(Long loanId, String status) {
+        return repaymentRepository.findByLoanIdAndStatusOrdered(loanId, status);
+    }
+
+    public Long countRepaymentsByStatus(String status) {
+        return repaymentRepository.countByStatus(status);
     }
 }

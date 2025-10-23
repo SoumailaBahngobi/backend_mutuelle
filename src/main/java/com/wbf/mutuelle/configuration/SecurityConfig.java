@@ -38,13 +38,15 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Routes publiques (auth non requise) - DOIVENT ÊTRE EN PREMIER
+                        // Routes publiques
                         .requestMatchers(
                                 "/mut/register",
                                 "/mut/login",
                                 "/mut/contribution_period/**",
                                 "/mut/contribution/upload/payment-proof/**",
                                 "/mut/event/**",
+                                "/mut/repayment/history",
+                                "/mut/repayment/history/**",
                                 "/mut/upload/**",
                                 "/mut/member/upload-profile",
                                 "/mut/member/profile/photo",
@@ -52,27 +54,26 @@ public class SecurityConfig {
                                 "/mut/contribution/individual",
                                 "/mut/member/profile/update",
                                 "/mut/member/forgot-password",
-                                "/mut/member/reset-password" // ✅ AJOUT: Permettre la réinitialisation de mot de passe
+                                "/mut/member/reset-password",
+                                "/mut/repayment/**"
                         ).permitAll()
-
-                        // ✅ CORRECTION : Permettre à tous les utilisateurs authentifiés de faire des cotisations
-                        .requestMatchers(HttpMethod.POST, "/mut/contribution/**").authenticated()
 
                         // Endpoints spécifiques pour le trésorier
                         .requestMatchers("/mut/treasurer/**").hasRole("TREASURER")
                         .requestMatchers("/mut/loan_request/treasurer/**").hasRole("TREASURER")
 
-                        // Endpoints nécessitant des rôles de responsables (uniquement l'approbation/rejet de prêt)
+                        // Endpoints nécessitant des rôles de responsables
                         .requestMatchers("/mut/loan_request/*/approve", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
 
-                        // Upload de profil pour utilisateurs authentifiés
+                        // Upload de profil
                         .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
 
-                        // Création de demandes de prêt pour utilisateurs authentifiés
+                        // Demandes de prêt
                         .requestMatchers(HttpMethod.POST, "/mut/loan_request").authenticated()
-
-                        // Consultation des demandes de prêt pour utilisateurs authentifiés
                         .requestMatchers(HttpMethod.GET, "/mut/loan_request/**").authenticated()
+
+                        // Cotisations
+                        .requestMatchers(HttpMethod.POST, "/mut/contribution/**").authenticated()
 
                         // Par défaut, toutes les autres routes sous /mut/** requièrent une authentification
                         .requestMatchers("/mut/**").authenticated()

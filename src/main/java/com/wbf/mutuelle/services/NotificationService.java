@@ -158,4 +158,7 @@ public class NotificationService {
         log.info("Récupération des notifications pour le rôle: {} après la date: {}", role, startDate);
         return notificationRepository.findByRoleAndDateAfter(role, startDate);
     }
+
+    public void notifyRepaymentStatusChange(String email, String overdue, String s) {
+    }
 }
