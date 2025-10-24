@@ -55,7 +55,9 @@ public class SecurityConfig {
                                 "/mut/member/profile/update",
                                 "/mut/member/forgot-password",
                                 "/mut/member/reset-password",
-                                "/mut/repayment/**"
+                                "/mut/repayment/**",
+                                "/mut/repayment/simple",
+                                "mut/repayment"
                         ).permitAll()
 
                         // Endpoints spécifiques pour le trésorier

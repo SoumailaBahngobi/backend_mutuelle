@@ -31,7 +31,7 @@ public class RepaymentController {
             @RequestParam(defaultValue = "20") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<Repayment> repayments = (Page<Repayment>) repaymentService.getAllRepayments(pageable);
+            Page<Repayment> repayments = repaymentService.getAllRepayments(pageable);
             return ResponseEntity.ok(repayments);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -320,7 +320,7 @@ public class RepaymentController {
             @RequestParam(defaultValue = "20") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<Repayment> repayments = (Page<Repayment>) repaymentService.getRepaymentsWithFilters(loanRequestId, loanId, status, memberId, pageable);
+            Page<Repayment> repayments = repaymentService.getRepaymentsWithFilters(loanRequestId, loanId, status, memberId, pageable);
             return ResponseEntity.ok(repayments);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -384,4 +384,32 @@ public class RepaymentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    // Endpoint de test pour diagnostiquer les problèmes
+    @GetMapping("/test")
+    public ResponseEntity<String> testEndpoint() {
+        try {
+            long count = repaymentService.countRepaymentsByStatus("PENDING");
+            return ResponseEntity.ok("Service OK - " + count + " remboursements PENDING trouvés");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur: " + e.getMessage());
+        }
+    }
+
+    // Endpoint simplifié sans pagination pour le frontend
+    @GetMapping("/simple")
+    public ResponseEntity<List<Repayment>> getAllRepaymentsSimple() {
+        try {
+            List<Repayment> repayments = repaymentService.getAllRepaymentsSimple();
+            return ResponseEntity.ok(repayments);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+    ////////////////////////////
+
+
 }

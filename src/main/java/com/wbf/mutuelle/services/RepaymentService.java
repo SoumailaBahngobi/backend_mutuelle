@@ -7,6 +7,8 @@ import com.wbf.mutuelle.repositories.RepaymentRepository;
 import com.wbf.mutuelle.repositories.LoanRepository;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +30,13 @@ public class RepaymentService {
     private final NotificationService notificationService;
     private final ExportService exportService;
 
-    public List<Repayment> getAllRepayments(Pageable pageable) {
+    // Méthode avec pagination
+    public Page<Repayment> getAllRepayments(Pageable pageable) {
+        return repaymentRepository.findAll(pageable);
+    }
+
+    // Méthode simplifiée sans pagination
+    public List<Repayment> getAllRepaymentsSimple() {
         return repaymentRepository.findAll();
     }
 
@@ -322,22 +330,25 @@ public class RepaymentService {
     }
 
     public List<Repayment> getRepaymentHistory(List<String> statuses, Long memberId) {
-        // Vérifications de sécurité
-        boolean hasStatusFilter = statuses != null && !statuses.isEmpty();
-        boolean hasMemberFilter = memberId != null;
+        try {
+            boolean hasStatusFilter = statuses != null && !statuses.isEmpty();
+            boolean hasMemberFilter = memberId != null;
 
-        if (hasStatusFilter && hasMemberFilter) {
-            // Cas 1: Filtre par statuts ET membre
-            return repaymentRepository.findByStatusInAndLoanRequestMemberIdOrLoanMemberId(statuses, memberId);
-        } else if (hasStatusFilter) {
-            // Cas 2: Filtre seulement par statuts
-            return repaymentRepository.findByStatusIn(statuses);
-        } else if (hasMemberFilter) {
-            // Cas 3: Filtre seulement par membre
-            return repaymentRepository.findByLoanRequestMemberIdOrLoanMemberId(memberId);
-        } else {
-            // Cas 4: Aucun filtre
-            return repaymentRepository.findAll();
+            if (hasStatusFilter && hasMemberFilter) {
+                // Cas 1: Filtre par statuts ET membre
+                return repaymentRepository.findByStatusInAndLoanRequestMemberIdOrLoanMemberId(statuses, memberId);
+            } else if (hasStatusFilter) {
+                // Cas 2: Filtre seulement par statuts
+                return repaymentRepository.findByStatusIn(statuses);
+            } else if (hasMemberFilter) {
+                // Cas 3: Filtre seulement par membre
+                return repaymentRepository.findByLoanRequestMemberIdOrLoanMemberId(memberId);
+            } else {
+                // Cas 4: Aucun filtre
+                return repaymentRepository.findAll();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de la récupération de l'historique", e);
         }
     }
 
@@ -412,8 +423,15 @@ public class RepaymentService {
         return total != null ? total : BigDecimal.ZERO;
     }
 
-    public List<Repayment> getRepaymentsWithFilters(Long loanRequestId, Long loanId, String status, Long memberId, Pageable pageable) {
-        return repaymentRepository.findWithFilters(loanRequestId, loanId, status, memberId);
+    public Page<Repayment> getRepaymentsWithFilters(Long loanRequestId, Long loanId, String status, Long memberId, Pageable pageable) {
+        List<Repayment> repayments = repaymentRepository.findWithFilters(loanRequestId, loanId, status, memberId);
+
+        // Implémentation manuelle de la pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), repayments.size());
+        List<Repayment> pageContent = repayments.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, repayments.size());
     }
 
     public BigDecimal getTotalRepaidAmountByPeriod(Date startDate, Date endDate) {

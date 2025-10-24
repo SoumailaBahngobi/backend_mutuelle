@@ -47,7 +47,9 @@ public interface RepaymentRepository extends JpaRepository<Repayment, Long> {
     List<Repayment> findByLoanRequestMemberIdOrLoanMemberId(@Param("memberId") Long memberId);
 
     // Recherche par membre avec statuts spécifiques - CORRIGÉ
-    @Query("SELECT r FROM Repayment r WHERE (r.loanRequest.member.id = :memberId OR r.loan.member.id = :memberId) AND r.status IN :statuses")
+    @Query("SELECT r FROM Repayment r WHERE " +
+            "(:memberId IS NULL OR r.loanRequest.member.id = :memberId OR r.loan.member.id = :memberId) " +
+            "AND (:statuses IS NULL OR r.status IN :statuses)")
     List<Repayment> findByStatusInAndLoanRequestMemberIdOrLoanMemberId(
             @Param("statuses") List<String> statuses,
             @Param("memberId") Long memberId);
@@ -87,7 +89,7 @@ public interface RepaymentRepository extends JpaRepository<Repayment, Long> {
     @Query("SELECT COUNT(r) FROM Repayment r WHERE r.status = :status")
     Long countByStatus(@Param("status") String status);
 
-    // Prochain remboursement dû pour un membre - CORRIGÉ (supprimé LIMIT 1)
+    // Prochain remboursement dû pour un membre - CORRIGÉ
     @Query("SELECT r FROM Repayment r WHERE (r.loanRequest.member.id = :memberId OR r.loan.member.id = :memberId) AND r.status IN ('PENDING', 'OVERDUE') ORDER BY r.dueDate ASC")
     List<Repayment> findNextDueRepaymentByMember(@Param("memberId") Long memberId);
 
