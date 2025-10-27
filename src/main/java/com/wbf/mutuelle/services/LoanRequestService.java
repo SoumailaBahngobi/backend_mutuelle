@@ -18,7 +18,7 @@ public class LoanRequestService {
     private final MemberRepository memberRepository;
     private final MemberService memberService;
     private final LoanAutoCreationService loanAutoCreationService;
-    private final TreasurerLoanService treasurerLoanService; // ✅ NOUVEAU SERVICE
+    private final TreasurerLoanService treasurerLoanService;
 
     public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
@@ -37,15 +37,14 @@ public class LoanRequestService {
         Member member = memberRepository.findByEmail(memberEmail)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
-        if (!memberService.validateMemberForLoan(member.getId())) {
-            throw new RuntimeException("Vous avez déjà une ou plusieurs demandes de prêt en attente de validation. Veuillez attendre leur traitement avant de soumettre une nouvelle demande.");
-        }
+        // SUPPRESSION DE LA VÉRIFICATION D'ÉLIGIBILITÉ
+        // Les membres peuvent maintenant soumettre plusieurs demandes sans restriction
 
         loanRequest.setMember(member);
         loanRequest.setStatus("PENDING");
         loanRequest.setRequestDate(new Date());
         loanRequest.setLoanCreated(false);
-        loanRequest.setLoanGranted(false); // ✅ Initialiser à false
+        loanRequest.setLoanGranted(false);
 
         return loanRequestRepository.save(loanRequest);
     }
