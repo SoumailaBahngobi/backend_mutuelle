@@ -49,7 +49,7 @@ public class LoanService {
             throw new RuntimeException("Un prêt existe déjà pour cette demande");
         }
 
-        // Calculer le montant à rembourser
+        // Calculer le montant à rembourser par le membre
         BigDecimal repaymentAmount = calculateRepaymentAmount(
                 loanRequest.getRequestAmount(),
                 loanRequest.getInterestRate(),
