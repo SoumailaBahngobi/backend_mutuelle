@@ -285,4 +285,14 @@ public class MemberController {
         }
     }
 
+     @PutMapping("/{id}")
+    public ResponseEntity<Member> updateMemberById(@PathVariable Long id, @RequestBody Member memberDetails) {
+        try {
+            Member updatedMember = memberService.updateMember(id, memberDetails);
+            return ResponseEntity.ok(updatedMember);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
 }

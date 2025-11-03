@@ -50,9 +50,11 @@ public class SecurityConfig {
                                 "/mut/upload/**",
                                 "/mut/member/upload-profile",
                                 "/mut/member/profile/photo",
+                                "/mut/member/**",
+
                                 "/mut/notification",
                                 "/mut/contribution/individual",
-                                "/mut/member/profile/update",
+                                "/mut/member/profile/update/**",
                                 "/mut/member/forgot-password",
                                 "/mut/member/reset-password",
                                 "/mut/repayment/**",
