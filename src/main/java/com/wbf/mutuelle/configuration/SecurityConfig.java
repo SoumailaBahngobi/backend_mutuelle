@@ -51,7 +51,7 @@ public class SecurityConfig {
                                 "/mut/member/upload-profile",
                                 "/mut/member/profile/photo",
                                 "/mut/member/**",
-
+                                "/mut/loans",
                                 "/mut/notification",
                                 "/mut/contribution/individual",
                                 "/mut/member/profile/update/**",

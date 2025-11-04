@@ -109,7 +109,6 @@ public class Loan {
         if (this.interestRate == null || this.interestRate.compareTo(BigDecimal.ZERO) == 0) {
             return this.amount;
         }
-
         // Calculer les intérêts
         BigDecimal interest = this.amount.multiply(this.interestRate)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
