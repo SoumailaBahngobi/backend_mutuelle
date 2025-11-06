@@ -1,0 +1,16 @@
+services:
+  keycloak:
+    container_name: mutuelle_solidarite
+    image: quay.io/keycloak/keycloak:25.0.5
+    ports:
+      - 9090:8080
+    environment:
+      MUTUELLE_ADMIN: Soumaila
+      MUTUELLE_ADMIN_PASSWORD: admin
+    volumes:
+      - mutuelle_data:/opt/mutuelle/data
+    command:
+      - 'start-dev'
+
+volumes:
+  mutuelle_data:

@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques
                         .requestMatchers(
+                                "/*",
                                 "/mut/register",
                                 "/mut/login",
                                 "/mut/contribution_period/**",
