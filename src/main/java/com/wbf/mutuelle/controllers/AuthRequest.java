@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 
 @Setter
-@RequestMapping("/mut")
+@RequestMapping("/mutuelle")
 public class AuthRequest {
 
     private String name;

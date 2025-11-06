@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 @CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
-@RequestMapping("/mut/loan-validator")
+@RequestMapping("/mutuelle/loan-validator")
 @RequiredArgsConstructor
 public class LoanValidatorController {
 

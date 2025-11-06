@@ -12,7 +12,7 @@ import java.util.Date;
 import java.util.List;
 
 @RestController
-@RequestMapping("/mut/notification")
+@RequestMapping("/mutuelle/notification")
 @RequiredArgsConstructor
 public class NotificationController {
 

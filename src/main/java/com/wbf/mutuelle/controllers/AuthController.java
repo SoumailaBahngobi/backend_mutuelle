@@ -12,7 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/mut")
+@RequestMapping("/mutuelle")
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;

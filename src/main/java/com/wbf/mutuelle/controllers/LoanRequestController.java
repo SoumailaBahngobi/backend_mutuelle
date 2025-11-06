@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
-@RequestMapping("/mut/loan_request")
+@RequestMapping("/mutuelle/loan_request")
 public class LoanRequestController {
 
     private final LoanRequestService loanRequestService;

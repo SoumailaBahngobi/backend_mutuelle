@@ -18,7 +18,7 @@ import java.util.Date;
 import java.util.List;
 
 @RestController
-@RequestMapping("/mut/repayment")
+@RequestMapping("/mutuelle/repayment")
 @RequiredArgsConstructor
 public class RepaymentController {
 

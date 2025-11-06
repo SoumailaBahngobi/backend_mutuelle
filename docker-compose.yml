@@ -1,16 +1,40 @@
 services:
-  keycloak:
-    container_name: mutuelle_solidarite
-    image: quay.io/keycloak/keycloak:25.0.5
-    ports:
-      - 9090:8080
+  postgres:
+    image: postgres:16.3                  # Official PostgreSQL image
     environment:
-      MUTUELLE_ADMIN: Soumaila
-      MUTUELLE_ADMIN_PASSWORD: admin
+      POSTGRES_USER: postgres              # Database username
+      POSTGRES_PASSWORD: admin  # Database password
+      POSTGRES_DB: mutuelle                # Database name for Keycloak
+    ports:
+      - "5432:5432"                        # Expose PostgreSQL port
     volumes:
-      - mutuelle_data:/opt/mutuelle/data
+      - postgres_data:/var/lib/postgresql/data  # Persist data
+    networks:
+      - database                           # Connect to custom network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest  # Latest Keycloak image
+    environment:
+      KEYCLOAK_ADMIN: soumaila                # Admin username for Keycloak
+      KEYCLOAK_ADMIN_PASSWORD: admin       # Admin password
+      KC_HTTP_ENABLED: true                # Enable HTTP access
+      KC_DB: postgres                      # Use PostgreSQL as the database
+      KC_DB_URL: jdbc:postgresql://postgres:5432/mutuelle  # Database URL
+      KC_DB_USERNAME: postgres             # Database username
+      KC_DB_PASSWORD: admin     # Database password
+    ports:
+      - "9090:8080"                        # Map host port 8088 to container port 8080
     command:
-      - 'start-dev'
+      - start-dev                          # Run in development mode
+    depends_on:
+      - postgres                           # Ensure PostgreSQL starts first
+    networks:
+      - database                           # Connect to custom network
 
 volumes:
-  mutuelle_data:
+  postgres_data:                          # Named volume for PostgreSQL data persistence
+
+networks:
+  database:
+    driver: bridge                        # Use bridge networking
+    name: database                        # Network name

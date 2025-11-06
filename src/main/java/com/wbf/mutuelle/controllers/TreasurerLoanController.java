@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/mut/treasurer/loans")
+@RequestMapping("/mutuelle/treasurer/loans")
 @RequiredArgsConstructor
 public class TreasurerLoanController {
 

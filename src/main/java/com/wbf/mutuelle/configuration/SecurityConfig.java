@@ -1,5 +1,7 @@
 package com.wbf.mutuelle.configuration;
 
+import com.wbf.mutuelle.configuration.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,48 +42,49 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques
                         .requestMatchers(
-                                "/*",
-                                "/mut/register",
-                                "/mut/login",
-                                "/mut/contribution_period/**",
-                                "/mut/contribution/upload/payment-proof/**",
-                                "/mut/event/**",
-                                "/mut/repayment/history",
-                                "/mut/repayment/history/**",
-                                "/mut/upload/**",
-                                "/mut/member/upload-profile",
-                                "/mut/member/profile/photo",
-                                "/mut/member/**",
-                                "/mut/loans",
-                                "/mut/notification",
-                                "/mut/contribution/individual",
-                                "/mut/member/profile/update/**",
-                                "/mut/member/forgot-password",
-                                "/mut/member/reset-password",
-                                "/mut/repayment/**",
-                                "/mut/repayment/simple",
-                                "mut/repayment"
+                                "/mutuelle",
+                                "/mutuelle/**",
+                                "/mutuelle/register",
+                                "/mutuelle/login",
+                                "/mutuelle/contribution_period/**",
+                                "/mutuelle/contribution/upload/payment-proof/**",
+                                "/mutuelle/event/**",
+                                "/mutuelle/repayment/history",
+                                "/mutuelle/repayment/history/**",
+                                "/mutuelle/upload/**",
+                                "/mutuelle/member/upload-profile",
+                                "/mutuelle/member/profile/photo",
+                                "/mutuelle/member/**",
+                                "/mutuelle/loans",
+                                "/mutuelle/notification",
+                                "/mutuelle/contribution/individual",
+                                "/mutuelle/member/profile/update/**",
+                                "/mutuelle/member/forgot-password",
+                                "/mutuelle/member/reset-password",
+                                "/mutuelle/repayment/**",
+                                "/mutuelle/repayment/simple",
+                                "mutuelle/repayment"
                         ).permitAll()
 
                         // Endpoints spécifiques pour le trésorier
-                        .requestMatchers("/mut/treasurer/**").hasRole("TREASURER")
-                        .requestMatchers("/mut/loan_request/treasurer/**").hasRole("TREASURER")
+                        .requestMatchers("/mutuelle/treasurer/**").hasRole("TREASURER")
+                        .requestMatchers("/mutuelle/loan_request/treasurer/**").hasRole("TREASURER")
 
                         // Endpoints nécessitant des rôles de responsables
-                        .requestMatchers("/mut/loan_request/*/approve", "/mut/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
+                        .requestMatchers("/mutuelle/loan_request/*/approve", "/mutuelle/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
 
                         // Upload de profil
-                        .requestMatchers(HttpMethod.POST, "/mut/member/upload-profile").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/mutuelle/member/upload-profile").authenticated()
 
                         // Demandes de prêt
-                        .requestMatchers(HttpMethod.POST, "/mut/loan_request").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/mut/loan_request/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/mutuelle/loan_request").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/mutuelle/loan_request/**").authenticated()
 
                         // Cotisations
-                        .requestMatchers(HttpMethod.POST, "/mut/contribution/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/mutuelle/contribution/**").authenticated()
 
-                        // Par défaut, toutes les autres routes sous /mut/** requièrent une authentification
-                        .requestMatchers("/mut/**").authenticated()
+                        // Par défaut, toutes les autres routes sous /mutuelle/** requièrent une authentification
+                        .requestMatchers("/mutuelle/**").authenticated()
 
                         // Toute autre requête doit être authentifiée
                         .anyRequest().authenticated()

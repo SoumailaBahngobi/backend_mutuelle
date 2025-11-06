@@ -27,7 +27,7 @@ import java.util.Map;
 
 @CrossOrigin(origins = "*", maxAge = 3000)
 @RestController
-@RequestMapping("mut/member")
+@RequestMapping("mutuelle/member")
 @RequiredArgsConstructor
 public class MemberController {
     private final MemberService memberService;

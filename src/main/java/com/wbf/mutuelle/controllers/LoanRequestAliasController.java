@@ -15,7 +15,7 @@ public class LoanRequestAliasController {
     private final LoanRequestService loanRequestService;
 
     // Alias endpoint to support frontend calling /mut/loan-requests/approved (hyphen plural)
-    @GetMapping("/mut/loan-requests/approved")
+    @GetMapping("/mutuelle/loan-requests/approved")
     public ResponseEntity<List<LoanRequest>> getApprovedLoanRequestsAlias() {
         List<LoanRequest> approved = loanRequestService.getApprovedLoans();
         return ResponseEntity.ok(approved);

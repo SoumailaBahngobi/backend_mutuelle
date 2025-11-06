@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("mut/contribution_period")
+@RequestMapping("mutuelle/contribution_period")
 @RequiredArgsConstructor
 public class ContributionPeriodController {
 

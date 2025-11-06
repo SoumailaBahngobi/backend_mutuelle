@@ -15,7 +15,7 @@ public class LoanAliasController {
     private final LoanService loanService;
 
     // Alias endpoint to support frontend calling /mut/loan (singular)
-    @GetMapping("/mut/loan")
+    @GetMapping("/mutuelle/loan")
     public ResponseEntity<List<Loan>> getLoansAlias() {
         List<Loan> loans = loanService.getAllLoans();
         return ResponseEntity.ok(loans);
