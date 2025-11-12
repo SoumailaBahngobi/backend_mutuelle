@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques
                         .requestMatchers(
-                                "/mutuelle",
+
                                 "/mutuelle/**",
                                 "/mutuelle/register",
                                 "/mutuelle/login",
