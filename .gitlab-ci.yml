@@ -1,0 +1,115 @@
+# .gitlab-ci.yml
+stages:
+  - test
+  - build
+  - docker
+  - deploy
+
+variables:
+  # Variables globales
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+cache:
+  paths:
+    - .m2/repository/
+    - frontend_mutuelle/node_modules/
+
+# ----------------------------
+# BACKEND JOBS
+# ----------------------------
+backend-test:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - cd backend_mutuelle
+    - mvn clean test
+  artifacts:
+    reports:
+      junit:
+        - backend_mutuelle/target/surefire-reports/TEST-*.xml
+        - backend_mutuelle/target/failsafe-reports/TEST-*.xml
+  only:
+    - main
+    - develop
+
+backend-build:
+  stage: build
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - cd ../
+    - mvn clean package -DskipTests
+  artifacts:
+    paths:
+      - /target/*.jar
+    expire_in: 1 hour
+  only:
+    - main
+
+backend-docker:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - cd backend_mutuelle
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHORT_SHA .
+    - docker tag $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE/backend:latest
+    - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/backend:latest
+  needs: ["backend-build"]
+  only:
+    - main
+
+# ----------------------------
+# FRONTEND JOBS
+# ----------------------------
+frontend-test:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd frontend_mutuelle
+    - npm ci
+    - npm run build
+  only:
+    - main
+    - develop
+
+frontend-docker:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - cd frontend_mutuelle
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA .
+    - docker tag $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE/frontend:latest
+    - docker push $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/frontend:latest
+  needs: ["frontend-test"]
+  only:
+    - main
+
+# ----------------------------
+# DEPLOYMENT (optionnel)
+# ----------------------------
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Déploiement en cours..."
+    # Exemple: appel webhook Render
+    - curl -X POST $RENDER_DEPLOY_HOOK
+    # Ou déploiement via SSH
+    # - apk add --no-cache openssh-client
+    # - ssh user@server "docker-compose pull && docker-compose up -d"
+  only:
+    - main
+  when: manual  # Déploiement manuel pour la production
