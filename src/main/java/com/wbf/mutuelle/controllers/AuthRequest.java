@@ -1,26 +1,18 @@
 package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.entities.Role;
-import lombok.*;
-import org.springframework.web.bind.annotation.RequestMapping;
 
-
-
-@Setter
-@RequestMapping("/mutuelle")
 public class AuthRequest {
 
     private String name;
     private String firstName;
+    private String npi;
+    private String phone;
+    private Role role; // C'est bien de type Role, pas Enum<Role>
+    private String email;
+    private String password;
 
-    public String getNpi() {
-        return npi;
-    }
-
-    public void setNpi(String npi) {
-        this.npi = npi;
-    }
-
+    // Getters et Setters
     public String getName() {
         return name;
     }
@@ -37,6 +29,14 @@ public class AuthRequest {
         this.firstName = firstName;
     }
 
+    public String getNpi() {
+        return npi;
+    }
+
+    public void setNpi(String npi) {
+        this.npi = npi;
+    }
+
     public String getPhone() {
         return phone;
     }
@@ -45,26 +45,27 @@ public class AuthRequest {
         this.phone = phone;
     }
 
-    public Enum<Role> getRole() {
+    public Role getRole() { // Retourne Role directement
         return role;
     }
 
-    public void setRole(Role role) {
+    public void setRole(Role role) { // Accepte Role directement
         this.role = role;
-    }
-
-    private String npi;
-    private String phone;
-    private Role role;
-    private String email;
-
-    public String getPassword() {
-        return password;
     }
 
     public String getEmail() {
         return email;
     }
 
-    private String password;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 }

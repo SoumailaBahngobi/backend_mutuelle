@@ -1,80 +1,76 @@
 package com.wbf.mutuelle.controllers;
 
-import com.wbf.mutuelle.configuration.JwtUtil;
 import com.wbf.mutuelle.entities.Member;
-import com.wbf.mutuelle.entities.Role;
 import com.wbf.mutuelle.repositories.MemberRepository;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
 @RestController
-@RequestMapping("/mutuelle")
+@RequestMapping("/mutuelle/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
     private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder; // Assurez-vous que c'est injecté
-    private final JwtUtil jwtUtil;
 
-    public AuthController(AuthenticationManager authenticationManager,
-                          MemberRepository memberRepository,
-                          PasswordEncoder passwordEncoder, // Injection correcte
-                          JwtUtil jwtUtil) {
-        this.authenticationManager = authenticationManager;
-        this.memberRepository = memberRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
-    }
-
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
-        // Vérifie si email déjà utilisé
-        if (memberRepository.findByEmail(request.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest().body("Email déjà utilisé !");
+    @GetMapping("/user-info")
+    public ResponseEntity<?> getUserInfo(@AuthenticationPrincipal OidcUser oidcUser) {
+        if (oidcUser == null) {
+            return ResponseEntity.ok(Map.of("authenticated", false));
         }
 
-        // Créer utilisateur avec mot de passe encodé
-        Member user = new Member();
-        user.setEmail(request.getEmail());
-        user.setName(request.getName());
-        user.setFirstName(request.getFirstName());
-        user.setNpi(request.getNpi());
-        user.setPhone(request.getPhone());
-        user.setRole(request.getRole() != null ? (Role) request.getRole() : Role.MEMBER);
+        // Extraire les informations du token Keycloak
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("authenticated", true);
+        userInfo.put("email", oidcUser.getEmail());
+        userInfo.put("name", oidcUser.getFullName());
+        userInfo.put("firstName", oidcUser.getGivenName());
+        userInfo.put("lastName", oidcUser.getFamilyName());
+        userInfo.put("preferred_username", oidcUser.getPreferredUsername());
 
-        // IMPORTANT: Encoder le mot de passe avec BCrypt
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
-        memberRepository.save(user);
-
-        // Générer un token
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-
-        return ResponseEntity.ok(new AuthResponse(token));
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Identifiants incorrects !");
+        // Extraire les rôles
+        Map<String, Object> realmAccess = oidcUser.getClaim("realm_access");
+        if (realmAccess != null && realmAccess.containsKey("roles")) {
+            userInfo.put("roles", realmAccess.get("roles"));
         }
 
-        Member user = memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable !"));
+        // Synchroniser avec la base de données locale
+        syncUserWithDatabase(oidcUser);
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        return ResponseEntity.ok(userInfo);
+    }
 
-        return ResponseEntity.ok(new AuthResponse(token));
+    @GetMapping("/logout")
+    public ResponseEntity<?> logout() {
+        // URL de déconnexion Keycloak
+        String logoutUrl = "http://localhost:8080/realms/mutuelle-realm/protocol/openid-connect/logout" +
+                "?redirect_uri=http://localhost:3000";
+
+        return ResponseEntity.ok(Map.of("logoutUrl", logoutUrl));
+    }
+
+    private void syncUserWithDatabase(OidcUser oidcUser) {
+        String email = oidcUser.getEmail();
+
+        if (!memberRepository.findByEmail(email).isPresent()) {
+            // Créer un nouvel utilisateur dans la base de données locale
+            Member newMember = new Member();
+            newMember.setEmail(email);
+            newMember.setName(oidcUser.getFamilyName());
+            newMember.setFirstName(oidcUser.getGivenName());
+            // Définir les valeurs par défaut pour les champs obligatoires
+            newMember.setNpi("NPI-" + System.currentTimeMillis()); // À adapter
+            newMember.setPhone("Non renseigné");
+
+            memberRepository.save(newMember);
+            log.info("Nouvel utilisateur synchronisé depuis Keycloak: {}", email);
+        }
     }
 }

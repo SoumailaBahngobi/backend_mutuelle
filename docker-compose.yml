@@ -1,40 +1,101 @@
-services:
-  postgres:
-    image: postgres:16.3                  # Official PostgreSQL image
-    environment:
-      POSTGRES_USER: postgres              # Database username
-      POSTGRES_PASSWORD: admin  # Database password
-      POSTGRES_DB: mutuelle                # Database name for Keycloak
-    ports:
-      - "5432:5432"                        # Expose PostgreSQL port
-    volumes:
-      - postgres_data:/var/lib/postgresql/data  # Persist data
-    networks:
-      - database                           # Connect to custom network
+version: '3.8'
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest  # Latest Keycloak image
+services:
+  # Base de données pour Keycloak
+  keycloak-db:
+    image: postgres:16.3
+    container_name: keycloak_postgres
     environment:
-      KEYCLOAK_ADMIN: soumaila                # Admin username for Keycloak
-      KEYCLOAK_ADMIN_PASSWORD: admin       # Admin password
-      KC_HTTP_ENABLED: true                # Enable HTTP access
-      KC_DB: postgres                      # Use PostgreSQL as the database
-      KC_DB_URL: jdbc:postgresql://postgres:5432/mutuelle  # Database URL
-      KC_DB_USERNAME: postgres             # Database username
-      KC_DB_PASSWORD: admin     # Database password
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
     ports:
-      - "9090:8080"                        # Map host port 8088 to container port 8080
-    command:
-      - start-dev                          # Run in development mode
-    depends_on:
-      - postgres                           # Ensure PostgreSQL starts first
+      - "5433:5432"  # Port différent pour éviter conflit avec votre DB locale
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
     networks:
-      - database                           # Connect to custom network
+      - auth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Base de données pour votre application (mutuelle)
+  app-db:
+    image: postgres:16.3
+    container_name: mutuelle_postgres
+    environment:
+      POSTGRES_DB: mutuelle           # ← Nom de votre base
+      POSTGRES_USER: postgres         # ← Utilisateur par défaut
+      POSTGRES_PASSWORD: admin        # ← Mot de passe (à adapter si différent)
+    ports:
+      - "5432:5432"                   # Port standard PostgreSQL
+    volumes:
+      - app_postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mutuelle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.2
+    container_name: keycloak_server
+    environment:
+      # Configuration base de données Keycloak
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+      KC_DB_SCHEMA: public
+
+      # Configuration hostname
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+      KC_PROXY: edge
+
+      # Configuration CORS pour React (port 3000)
+      KC_HTTP_CORS_ORIGINS: http://localhost:3000
+      KC_HTTP_CORS_HEADERS: X-Requested-With,Content-Type,Authorization,Origin
+      KC_HTTP_CORS_ENABLED: true
+      KC_HTTP_CORS_MAX_AGE: 3600
+
+      # Content Security Policy - Autorise votre frontend React
+      KC_HTTP_HEADERS_CONTENT_SECURITY_POLICY: "frame-src 'self' http://localhost:3000; frame-ancestors 'self' http://localhost:3000; default-src 'self' http://localhost:3000; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000; style-src 'self' 'unsafe-inline' http://localhost:3000; img-src 'self' data: http://localhost:3000; connect-src 'self' http://localhost:3000 http://localhost:8088;"
+
+      # URL frontend pour les redirections
+      KC_SPI_HOSTNAME_DEFAULT_FRONTEND_URL: http://localhost:3000
+
+      # Compte admin Keycloak
+      KEYCLOAK_ADMIN: soumaila
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Logs
+      KC_LOG_LEVEL: INFO
+
+      # Features
+      KC_FEATURES: preview,token-exchange,admin-fine-grained-authz
+
+    ports:
+      - "8088:8080"  # Keycloak accessible sur le port 8088
+    command:
+      - "start-dev"
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - auth-network
+    restart: on-failure
 
 volumes:
-  postgres_data:                          # Named volume for PostgreSQL data persistence
+  keycloak_postgres_data:
+  app_postgres_data:
 
 networks:
-  database:
-    driver: bridge                        # Use bridge networking
-    name: database                        # Network name
+  auth-network:
+    driver: bridge

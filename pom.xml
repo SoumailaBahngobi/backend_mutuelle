@@ -15,7 +15,7 @@
     <description>Gestion de mutuelle</description>
 
     <properties>
-        <java.version>24</java.version>
+        <java.version>24.0.2</java.version>
         <tanzu-scg-extensions.version>1.0.0</tanzu-scg-extensions.version>
     </properties>
 
@@ -32,6 +32,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
         <dependency>
@@ -129,9 +134,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-
-
     <dependencyManagement>
         <dependencies>
         </dependencies>
