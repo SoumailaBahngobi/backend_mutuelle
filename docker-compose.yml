@@ -24,7 +24,7 @@ services:
   # Base de données pour votre application (mutuelle)
   app-db:
     image: postgres:16.3
-    container_name: mutuelle_postgres
+    container_name: mutuelle
     environment:
       POSTGRES_DB: mutuelle           # ← Nom de votre base
       POSTGRES_USER: postgres         # ← Utilisateur par défaut
@@ -52,7 +52,6 @@ services:
       KC_DB_USERNAME: keycloak_user
       KC_DB_PASSWORD: keycloak_password
       KC_DB_SCHEMA: public
-
       # Configuration hostname
       KC_HOSTNAME: localhost
       KC_HOSTNAME_STRICT: false

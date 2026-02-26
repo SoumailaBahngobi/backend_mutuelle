@@ -3,7 +3,6 @@ package com.wbf.mutuelle.configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,12 +34,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Routes publiques (ajustez selon vos besoins)
-                        .requestMatchers("/mutuelle/public/**").permitAll()
+                        // Routes publiques
                         .requestMatchers("/mutuelle/auth/**").permitAll()
-                        .requestMatchers("/mutuelle/register").permitAll()
-                        .requestMatchers("/mutuelle/member/forgot-password").permitAll()
-                        .requestMatchers("/mutuelle/member/reset-password").permitAll()
+                        .requestMatchers("/mutuelle/public/**").permitAll()
+                        .requestMatchers("/mutuelle/register").permitAll() // Pour compatibilité
                         // Toutes les autres routes nécessitent une authentification
                         .anyRequest().authenticated()
                 )
@@ -74,7 +71,6 @@ public class SecurityConfig {
     static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
         @Override
         public Collection<GrantedAuthority> convert(Jwt jwt) {
-            // Extraction des rôles depuis le token Keycloak
             Map<String, Object> realmAccess = jwt.getClaim("realm_access");
 
             if (realmAccess == null || realmAccess.isEmpty()) {
