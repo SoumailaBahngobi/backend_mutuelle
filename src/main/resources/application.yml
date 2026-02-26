@@ -48,7 +48,7 @@ logging:
     org.hibernate.SQL: DEBUG  # Pour voir les requêtes SQL
     org.hibernate.orm.jdbc.bind: TRACE  # Pour voir les paramètres des requêtes
 
-# ⚠️ AJOUT OBLIGATOIRE - Configuration Keycloak Admin Client ⚠️
+#  AJOUT OBLIGATOIRE - Configuration Keycloak Admin Client
 keycloak:
   auth-server-url: http://localhost:8080
   realm: mutuelle-realm
