@@ -15,7 +15,7 @@
     <description>Gestion de mutuelle</description>
 
     <properties>
-        <java.version>24.0.2</java.version>
+        <java.version>21</java.version>
         <keycloak.version>25.0.2</keycloak.version>
         <tanzu-scg-extensions.version>1.0.0</tanzu-scg-extensions.version>
     </properties>

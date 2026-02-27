@@ -75,6 +75,10 @@ public class KeycloakUserService {
 
             return savedMember;
 
+        } catch (jakarta.ws.rs.NotAuthorizedException nae) {
+            // Specific message for unauthorized issues (bad admin credentials or insufficient roles)
+            log.error("Accès refusé lors de l'inscription Keycloak - vérifiez les identifiants/admin roles", nae);
+            throw new RuntimeException("Erreur lors de l'inscription: accès refusé (401). Vérifiez la configuration Keycloak.");
         } catch (Exception e) {
             log.error("Erreur lors de l'inscription", e);
             throw new RuntimeException("Erreur lors de l'inscription: " + e.getMessage());
