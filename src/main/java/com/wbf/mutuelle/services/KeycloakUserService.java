@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,7 +37,7 @@ public class KeycloakUserService {
     @Transactional
     public Member registerUser(RegisterRequest request) {
         try {
-            // 1. Vérifier si l'utilisateur existe déjà
+            // 1. Vérifier si l'utilisateur existe déjà dans Keycloak
             if (userExists(request.getEmail())) {
                 throw new RuntimeException("Un utilisateur avec cet email existe déjà");
             }
@@ -46,10 +45,7 @@ public class KeycloakUserService {
             // 2. Créer l'utilisateur dans Keycloak
             String userId = createUserInKeycloak(request);
 
-            // 3. Assigner le rôle par défaut (MEMBER)
-            assignRoleToUser(userId, "MEMBER");
-
-            // 4. Créer l'utilisateur dans la base locale (sans mot de passe)
+            // 3. Créer l'utilisateur dans la base locale
             Member member = new Member();
             member.setKeycloakId(userId);
             member.setEmail(request.getEmail());
@@ -57,13 +53,25 @@ public class KeycloakUserService {
             member.setFirstName(request.getFirstName());
             member.setPhone(request.getPhone());
             member.setNpi(request.getNpi());
-            member.setRole(Role.MEMBER); // Rôle par défaut
+
+            // Gérer le rôle : si null ou vide, mettre MEMBER par défaut
+            Role role = Role.MEMBER;
+            if (request.getRole() != null && !request.getRole().isEmpty()) {
+                try {
+                    role = Role.valueOf(request.getRole().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Rôle invalide: {}, utilisation de MEMBER par défaut", request.getRole());
+                }
+            }
+            member.setRole(role);
+
             member.setIsRegular(false);
             member.setHasPreviousDebt(false);
             member.setSubscriptionStatus("PENDING");
 
             Member savedMember = memberRepository.save(member);
-            log.info("Utilisateur créé avec succès: {}", request.getEmail());
+            log.info("Utilisateur créé avec succès dans Keycloak et DB: {}, rôle: {}",
+                    request.getEmail(), role);
 
             return savedMember;
 
@@ -97,6 +105,9 @@ public class KeycloakUserService {
         // Définir le mot de passe
         setUserPassword(userId, request.getPassword());
 
+        // Assigner le rôle dans Keycloak (toujours MEMBER pour l'authentification)
+        assignRoleToUser(userId, "MEMBER");
+
         return userId;
     }
 
@@ -110,14 +121,20 @@ public class KeycloakUserService {
         credential.setTemporary(false);
 
         userResource.resetPassword(credential);
+        log.debug("Mot de passe défini pour l'utilisateur: {}", userId);
     }
 
     private void assignRoleToUser(String userId, String roleName) {
-        RealmResource realmResource = keycloakAdmin.realm(realm);
-        UserResource userResource = realmResource.users().get(userId);
+        try {
+            RealmResource realmResource = keycloakAdmin.realm(realm);
+            UserResource userResource = realmResource.users().get(userId);
 
-        RoleRepresentation role = realmResource.roles().get(roleName).toRepresentation();
-        userResource.roles().realmLevel().add(Collections.singletonList(role));
+            RoleRepresentation role = realmResource.roles().get(roleName).toRepresentation();
+            userResource.roles().realmLevel().add(Collections.singletonList(role));
+            log.debug("Rôle {} assigné à l'utilisateur: {}", roleName, userId);
+        } catch (Exception e) {
+            log.error("Erreur lors de l'assignation du rôle {} à l'utilisateur {}", roleName, userId, e);
+        }
     }
 
     // ==================== MOT DE PASSE OUBLIÉ ====================
@@ -153,7 +170,7 @@ public class KeycloakUserService {
             List<UserRepresentation> users = realmResource.users().searchByEmail(email, true);
             return users.isEmpty() ? null : users.get(0);
         } catch (Exception e) {
-            log.error("Erreur recherche utilisateur", e);
+            log.error("Erreur recherche utilisateur par email: {}", email, e);
             return null;
         }
     }
@@ -167,7 +184,7 @@ public class KeycloakUserService {
             RealmResource realmResource = keycloakAdmin.realm(realm);
             return realmResource.users().get(userId).toRepresentation();
         } catch (Exception e) {
-            log.error("Erreur recherche utilisateur par ID", e);
+            log.error("Erreur recherche utilisateur par ID: {}", userId, e);
             return null;
         }
     }
@@ -176,21 +193,95 @@ public class KeycloakUserService {
 
     @Transactional
     public Member syncUserWithDatabase(String email, String keycloakId) {
+        // Create effectively final copies of the variables
+        String finalKeycloakId = keycloakId;
+
+        // Get user representation
+        UserRepresentation kcUser = null;
+        if (finalKeycloakId != null && !finalKeycloakId.isEmpty()) {
+            kcUser = getUserById(finalKeycloakId);
+        }
+
+        // If kcUser is null, try to get by email
+        if (kcUser == null) {
+            kcUser = getUserByEmail(email);
+            if (kcUser != null && (finalKeycloakId == null || finalKeycloakId.isEmpty())) {
+                finalKeycloakId = kcUser.getId();
+            }
+        }
+
+        // Create effectively final copies for lambda use
+        final UserRepresentation finalKcUser = kcUser;
+        final String finalKcId = finalKeycloakId;
+
         return memberRepository.findByEmail(email)
                 .map(member -> {
-                    member.setKeycloakId(keycloakId);
+                    // Mettre à jour les champs depuis Keycloak si disponibles
+                    if (finalKcUser != null) {
+                        member.setKeycloakId(finalKcUser.getId());
+                        member.setFirstName(finalKcUser.getFirstName());
+                        member.setName(finalKcUser.getLastName());
+                        if (finalKcUser.getEmail() != null) member.setEmail(finalKcUser.getEmail());
+
+                        // Mapper les attributs personnalisés (phone, npi, profileImage)
+                        if (finalKcUser.getAttributes() != null) {
+                            Object phoneAttr = finalKcUser.getAttributes().get("phone");
+                            if (phoneAttr instanceof java.util.List && !((java.util.List<?>) phoneAttr).isEmpty()) {
+                                member.setPhone(String.valueOf(((java.util.List<?>) phoneAttr).get(0)));
+                            }
+                            Object npiAttr = finalKcUser.getAttributes().get("npi");
+                            if (npiAttr instanceof java.util.List && !((java.util.List<?>) npiAttr).isEmpty()) {
+                                member.setNpi(String.valueOf(((java.util.List<?>) npiAttr).get(0)));
+                            }
+                            Object imgAttr = finalKcUser.getAttributes().get("profileImage");
+                            if (imgAttr instanceof java.util.List && !((java.util.List<?>) imgAttr).isEmpty()) {
+                                member.setProfileImage(String.valueOf(((java.util.List<?>) imgAttr).get(0)));
+                            }
+                        }
+                    } else {
+                        // Si pas de kcUser, au minimum mettre à jour le keycloakId si fourni
+                        if (finalKcId != null && !finalKcId.isEmpty()) member.setKeycloakId(finalKcId);
+                    }
+
+                    log.debug("Member mis à jour lors de la synchronisation pour: {}", email);
                     return memberRepository.save(member);
                 })
                 .orElseGet(() -> {
                     // Créer un membre si inexistant
                     Member newMember = new Member();
                     newMember.setEmail(email);
-                    newMember.setKeycloakId(keycloakId);
+                    newMember.setKeycloakId(finalKcId == null ? (finalKcUser != null ? finalKcUser.getId() : null) : finalKcId);
                     newMember.setRole(Role.MEMBER);
+
+                    if (finalKcUser != null) {
+                        newMember.setFirstName(finalKcUser.getFirstName());
+                        newMember.setName(finalKcUser.getLastName());
+                        if (finalKcUser.getAttributes() != null) {
+                            Object phoneAttr = finalKcUser.getAttributes().get("phone");
+                            if (phoneAttr instanceof java.util.List && !((java.util.List<?>) phoneAttr).isEmpty()) {
+                                newMember.setPhone(String.valueOf(((java.util.List<?>) phoneAttr).get(0)));
+                            }
+                            Object npiAttr = finalKcUser.getAttributes().get("npi");
+                            if (npiAttr instanceof java.util.List && !((java.util.List<?>) npiAttr).isEmpty()) {
+                                newMember.setNpi(String.valueOf(((java.util.List<?>) npiAttr).get(0)));
+                            }
+                            Object imgAttr = finalKcUser.getAttributes().get("profileImage");
+                            if (imgAttr instanceof java.util.List && !((java.util.List<?>) imgAttr).isEmpty()) {
+                                newMember.setProfileImage(String.valueOf(((java.util.List<?>) imgAttr).get(0)));
+                            }
+                        }
+                    }
+
                     newMember.setIsRegular(false);
                     newMember.setHasPreviousDebt(false);
                     newMember.setSubscriptionStatus("PENDING");
-                    return memberRepository.save(newMember);
+
+                    if (newMember.getNpi() == null) newMember.setNpi("NPI-" + System.currentTimeMillis());
+                    if (newMember.getPhone() == null) newMember.setPhone("Non renseigné");
+
+                    Member saved = memberRepository.save(newMember);
+                    log.info("Nouveau membre créé lors de la synchronisation: {}", email);
+                    return saved;
                 });
     }
 }

@@ -101,4 +101,12 @@ public class Member {
     public boolean isMember() {
         return role == Role.MEMBER;
     }
+
+    public String getKeycloakId() {
+        return keycloakId;
+    }
+
+    public void setKeycloakId(String keycloakId) {
+        this.keycloakId = keycloakId;
+    }
 }

@@ -3,6 +3,8 @@ package com.wbf.mutuelle.controllers;
 import com.wbf.mutuelle.dto.ApiResponse;
 import com.wbf.mutuelle.dto.RegisterRequest;
 import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.entities.Role;  // ← IMPORT AJOUTÉ
+import com.wbf.mutuelle.repositories.MemberRepository;
 import com.wbf.mutuelle.services.KeycloakUserService;
 import com.wbf.mutuelle.services.MemberService;
 import jakarta.validation.Valid;
@@ -25,6 +27,7 @@ public class AuthController {
 
     private final KeycloakUserService keycloakUserService;
     private final MemberService memberService;
+    private final MemberRepository memberRepository;  // ← AJOUTÉ pour la synchronisation
 
     /**
      * Inscription via Keycloak
@@ -45,7 +48,7 @@ public class AuthController {
     }
 
     /**
-     * Récupérer les informations de l'utilisateur connecté
+     * Récupérer les informations de l'utilisateur connecté (VERSION UNIQUE)
      */
     @GetMapping("/user-info")
     public ResponseEntity<?> getUserInfo(@AuthenticationPrincipal Jwt jwt) {
@@ -56,22 +59,51 @@ public class AuthController {
         String email = jwt.getClaim("email");
         String keycloakId = jwt.getSubject();
 
-        // Synchroniser avec la base locale
-        Member member = keycloakUserService.syncUserWithDatabase(email, keycloakId);
+        // Chercher dans la base locale
+        Member member = memberRepository.findByEmail(email)
+                .orElse(null);
+
+        // Si pas trouvé, synchroniser automatiquement
+        if (member == null) {
+            member = new Member();
+            member.setEmail(email);
+            member.setFirstName(jwt.getClaim("given_name"));
+            member.setName(jwt.getClaim("family_name"));
+            member.setKeycloakId(keycloakId);
+            member.setRole(Role.MEMBER);  // Rôle par défaut
+            member.setIsRegular(false);
+            member.setHasPreviousDebt(false);
+            member.setSubscriptionStatus("PENDING");
+            member.setNpi("NPI-" + System.currentTimeMillis());  // À générer selon votre logique
+            member.setPhone("Non renseigné");
+
+            member = memberRepository.save(member);  // ← CORRIGÉ
+            log.info("Nouvel utilisateur synchronisé via user-info: {}", email);
+        } else {
+            // Mettre à jour keycloakId si nécessaire
+            if (member.getKeycloakId() == null) {
+                member.setKeycloakId(keycloakId);
+                member = memberRepository.save(member);
+                log.info("KeycloakId mis à jour pour: {}", email);
+            }
+        }
 
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("authenticated", true);
         userInfo.put("email", email);
-        userInfo.put("name", jwt.getClaim("family_name"));
-        userInfo.put("firstName", jwt.getClaim("given_name"));
-        userInfo.put("preferred_username", jwt.getClaim("preferred_username"));
-        userInfo.put("memberId", member.getId());
+        userInfo.put("name", member.getName());
+        userInfo.put("firstName", member.getFirstName());
+        userInfo.put("id", member.getId());
         userInfo.put("role", member.getRole());
+        userInfo.put("npi", member.getNpi());
+        userInfo.put("phone", member.getPhone());
+        userInfo.put("isRegular", member.getIsRegular());
+        userInfo.put("subscriptionStatus", member.getSubscriptionStatus());
 
-        // Extraire les rôles Keycloak
+        // Ajouter les rôles Keycloak si nécessaire
         Map<String, Object> realmAccess = jwt.getClaim("realm_access");
         if (realmAccess != null && realmAccess.containsKey("roles")) {
-            userInfo.put("roles", realmAccess.get("roles"));
+            userInfo.put("keycloakRoles", realmAccess.get("roles"));
         }
 
         return ResponseEntity.ok(userInfo);
@@ -82,10 +114,10 @@ public class AuthController {
      */
     @GetMapping("/login-url")
     public ResponseEntity<Map<String, String>> getLoginUrl() {
-        String loginUrl = "http://localhost:8080/realms/mutuelle-realm/protocol/openid-connect/auth" +
+        String loginUrl = "http://localhost:8088/realms/mutuelle-realm/protocol/openid-connect/auth" +
                 "?client_id=mutuelle-client" +
                 "&response_type=code" +
-                "&redirect_uri=http://localhost:3000" +
+                "&redirect_uri=" + "http://localhost:3000" +
                 "&scope=openid%20profile%20email";
 
         return ResponseEntity.ok(Map.of("loginUrl", loginUrl));
@@ -96,7 +128,7 @@ public class AuthController {
      */
     @GetMapping("/logout-url")
     public ResponseEntity<Map<String, String>> getLogoutUrl() {
-        String logoutUrl = "http://localhost:8080/realms/mutuelle-realm/protocol/openid-connect/logout" +
+        String logoutUrl = "http://localhost:8088/realms/mutuelle-realm/protocol/openid-connect/logout" +
                 "?redirect_uri=http://localhost:3000";
 
         return ResponseEntity.ok(Map.of("logoutUrl", logoutUrl));
@@ -129,7 +161,7 @@ public class AuthController {
      */
     @GetMapping("/reset-password-url")
     public ResponseEntity<Map<String, String>> getResetPasswordUrl() {
-        String resetUrl = "http://localhost:8080/realms/mutuelle-realm/login-actions/reset-credentials";
+        String resetUrl = "http://localhost:8088/realms/mutuelle-realm/login-actions/reset-credentials";
         return ResponseEntity.ok(Map.of("resetUrl", resetUrl));
     }
 }

@@ -56,3 +56,4 @@ keycloak:
   client-secret: ${KEYCLOAK_CLIENT_SECRET:}  # Même secret que plus haut
   admin-username: admin
   admin-password: admin
+  event-secret: ${KEYCLOAK_EVENT_SECRET:change_me}  # Secret partagé pour le webhook d'événements
