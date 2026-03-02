@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
-//import org.springframework.security.web.authentication.www.BearerTokenAuthenticationFilter;
 
 import com.wbf.mutuelle.configuration.KeycloakSyncFilter;
 
@@ -50,20 +49,54 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
-                    .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 );
 
-            http.addFilterAfter(keycloakSyncFilter, BearerTokenAuthenticationFilter.class);
+        http.addFilterAfter(keycloakSyncFilter, BearerTokenAuthenticationFilter.class);
 
-            return http.build();
+        return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+
+        // Configuration CORS complète - accepte plusieurs origines
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://172.30.176.1:3000"
+        ));
+
+        // Ou alternative plus flexible avec patterns (décommentez si besoin)
+        /*
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://172.30.176.1:*",
+            "http://192.168.*.*:*"
+        ));
+        */
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+        ));
+
+        configuration.setExposedHeaders(Arrays.asList(
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials"
+        ));
+
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
