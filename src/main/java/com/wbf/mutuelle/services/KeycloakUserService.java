@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
@@ -28,6 +29,9 @@ public class KeycloakUserService {
 
     private final Keycloak keycloakAdmin;
     private final MemberRepository memberRepository;
+
+    @Value("${keycloak.auth-server-url}")
+    private String serverUrl;  // ← AJOUTÉ
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -76,7 +80,6 @@ public class KeycloakUserService {
             return savedMember;
 
         } catch (jakarta.ws.rs.NotAuthorizedException nae) {
-            // Specific message for unauthorized issues (bad admin credentials or insufficient roles)
             log.error("Accès refusé lors de l'inscription Keycloak - vérifiez les identifiants/admin roles", nae);
             throw new RuntimeException("Erreur lors de l'inscription: accès refusé (401). Vérifiez la configuration Keycloak.");
         } catch (Exception e) {
@@ -197,16 +200,13 @@ public class KeycloakUserService {
 
     @Transactional
     public Member syncUserWithDatabase(String email, String keycloakId) {
-        // Create effectively final copies of the variables
         String finalKeycloakId = keycloakId;
 
-        // Get user representation
         UserRepresentation kcUser = null;
         if (finalKeycloakId != null && !finalKeycloakId.isEmpty()) {
             kcUser = getUserById(finalKeycloakId);
         }
 
-        // If kcUser is null, try to get by email
         if (kcUser == null) {
             kcUser = getUserByEmail(email);
             if (kcUser != null && (finalKeycloakId == null || finalKeycloakId.isEmpty())) {
@@ -214,20 +214,17 @@ public class KeycloakUserService {
             }
         }
 
-        // Create effectively final copies for lambda use
         final UserRepresentation finalKcUser = kcUser;
         final String finalKcId = finalKeycloakId;
 
         return memberRepository.findByEmail(email)
                 .map(member -> {
-                    // Mettre à jour les champs depuis Keycloak si disponibles
                     if (finalKcUser != null) {
                         member.setKeycloakId(finalKcUser.getId());
                         member.setFirstName(finalKcUser.getFirstName());
                         member.setName(finalKcUser.getLastName());
                         if (finalKcUser.getEmail() != null) member.setEmail(finalKcUser.getEmail());
 
-                        // Mapper les attributs personnalisés (phone, npi, profileImage)
                         if (finalKcUser.getAttributes() != null) {
                             Object phoneAttr = finalKcUser.getAttributes().get("phone");
                             if (phoneAttr instanceof java.util.List && !((java.util.List<?>) phoneAttr).isEmpty()) {
@@ -243,7 +240,6 @@ public class KeycloakUserService {
                             }
                         }
                     } else {
-                        // Si pas de kcUser, au minimum mettre à jour le keycloakId si fourni
                         if (finalKcId != null && !finalKcId.isEmpty()) member.setKeycloakId(finalKcId);
                     }
 
@@ -251,7 +247,6 @@ public class KeycloakUserService {
                     return memberRepository.save(member);
                 })
                 .orElseGet(() -> {
-                    // Créer un membre si inexistant
                     Member newMember = new Member();
                     newMember.setEmail(email);
                     newMember.setKeycloakId(finalKcId == null ? (finalKcUser != null ? finalKcUser.getId() : null) : finalKcId);
@@ -288,4 +283,69 @@ public class KeycloakUserService {
                     return saved;
                 });
     }
+
+    // ==================== GESTION DES MOTS DE PASSE ====================
+
+    public boolean resetPassword(String userId, String newPassword) {
+        try {
+            RealmResource realmResource = keycloakAdmin.realm(realm);
+            UserResource userResource = realmResource.users().get(userId);
+
+            CredentialRepresentation credential = new CredentialRepresentation();
+            credential.setType(CredentialRepresentation.PASSWORD);
+            credential.setValue(newPassword);
+            credential.setTemporary(false);
+
+            userResource.resetPassword(credential);
+
+            log.info("Mot de passe réinitialisé pour l'utilisateur ID: {}", userId);
+            return true;
+        } catch (Exception e) {
+            log.error("Erreur lors de la réinitialisation du mot de passe", e);
+            return false;
+        }
+    }
+
+    public boolean changePassword(String userId, String currentPassword, String newPassword) {
+        try {
+            // 1. Vérifier d'abord que l'ancien mot de passe est correct
+            String email = getUserById(userId).getEmail();
+
+            // Tenter une authentification avec l'ancien mot de passe
+            try {
+                Keycloak userKeycloak = KeycloakBuilder.builder()
+                        .serverUrl(serverUrl)  // ← CORRIGÉ : utilisation de la variable
+                        .realm(realm)
+                        .username(email)
+                        .password(currentPassword)
+                        .clientId("mutuelle-client")
+                        .build();
+
+                // Si ça échoue, une exception sera levée
+                userKeycloak.tokenManager().getAccessToken();
+            } catch (Exception e) {
+                log.warn("Ancien mot de passe incorrect pour: {}", email);
+                return false;
+            }
+
+            // 2. Si l'ancien mot de passe est correct, on peut changer
+            RealmResource realmResource = keycloakAdmin.realm(realm);
+            UserResource userResource = realmResource.users().get(userId);
+
+            CredentialRepresentation credential = new CredentialRepresentation();
+            credential.setType(CredentialRepresentation.PASSWORD);
+            credential.setValue(newPassword);
+            credential.setTemporary(false);
+
+            userResource.resetPassword(credential);
+
+            log.info("Mot de passe changé pour l'utilisateur ID: {}", userId);
+            return true;
+        } catch (Exception e) {
+            log.error("Erreur lors du changement de mot de passe", e);
+            return false;
+        }
+    }
+
+
 }

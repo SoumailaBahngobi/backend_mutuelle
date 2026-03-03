@@ -1,6 +1,7 @@
 package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.dto.ApiResponse;
+import com.wbf.mutuelle.dto.ChangePasswordRequest;
 import com.wbf.mutuelle.dto.RegisterRequest;
 import com.wbf.mutuelle.entities.Member;
 import com.wbf.mutuelle.entities.Role;  // ← IMPORT AJOUTÉ
@@ -163,5 +164,29 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> getResetPasswordUrl() {
         String resetUrl = "http://localhost:8088/realms/mutuelle-realm/login-actions/reset-credentials";
         return ResponseEntity.ok(Map.of("resetUrl", resetUrl));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse> changePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody ChangePasswordRequest request) {
+
+        try {
+            String keycloakId = jwt.getSubject();
+            boolean changed = keycloakUserService.changePassword(keycloakId,
+                    request.getCurrentPassword(), request.getNewPassword());
+
+            if (changed) {
+                return ResponseEntity.ok(new ApiResponse(true,
+                        "Mot de passe modifié avec succès.", null));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse(false, "Mot de passe actuel incorrect.", null));
+            }
+        } catch (Exception e) {
+            log.error("Erreur change password", e);
+            return ResponseEntity.internalServerError()
+                    .body(new ApiResponse(false, "Erreur lors du changement de mot de passe.", null));
+        }
     }
 }
