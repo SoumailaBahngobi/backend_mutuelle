@@ -2,9 +2,11 @@ package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.dto.ApiResponse;
 import com.wbf.mutuelle.dto.ChangePasswordRequest;
+import com.wbf.mutuelle.dto.ForgotPasswordRequest;
 import com.wbf.mutuelle.dto.RegisterRequest;
+import com.wbf.mutuelle.dto.ResetPasswordRequest;
 import com.wbf.mutuelle.entities.Member;
-import com.wbf.mutuelle.entities.Role;  // ← IMPORT AJOUTÉ
+import com.wbf.mutuelle.entities.Role;
 import com.wbf.mutuelle.repositories.MemberRepository;
 import com.wbf.mutuelle.services.KeycloakUserService;
 import com.wbf.mutuelle.services.MemberService;
@@ -28,7 +30,7 @@ public class AuthController {
 
     private final KeycloakUserService keycloakUserService;
     private final MemberService memberService;
-    private final MemberRepository memberRepository;  // ← AJOUTÉ pour la synchronisation
+    private final MemberRepository memberRepository;
 
     /**
      * Inscription via Keycloak
@@ -49,7 +51,7 @@ public class AuthController {
     }
 
     /**
-     * Récupérer les informations de l'utilisateur connecté (VERSION UNIQUE)
+     * Récupérer les informations de l'utilisateur connecté
      */
     @GetMapping("/user-info")
     public ResponseEntity<?> getUserInfo(@AuthenticationPrincipal Jwt jwt) {
@@ -71,17 +73,16 @@ public class AuthController {
             member.setFirstName(jwt.getClaim("given_name"));
             member.setName(jwt.getClaim("family_name"));
             member.setKeycloakId(keycloakId);
-            member.setRole(Role.MEMBER);  // Rôle par défaut
+            member.setRole(Role.MEMBER);
             member.setIsRegular(false);
             member.setHasPreviousDebt(false);
             member.setSubscriptionStatus("PENDING");
-            member.setNpi("NPI-" + System.currentTimeMillis());  // À générer selon votre logique
+            member.setNpi("NPI-" + System.currentTimeMillis());
             member.setPhone("Non renseigné");
 
-            member = memberRepository.save(member);  // ← CORRIGÉ
+            member = memberRepository.save(member);
             log.info("Nouvel utilisateur synchronisé via user-info: {}", email);
         } else {
-            // Mettre à jour keycloakId si nécessaire
             if (member.getKeycloakId() == null) {
                 member.setKeycloakId(keycloakId);
                 member = memberRepository.save(member);
@@ -101,7 +102,6 @@ public class AuthController {
         userInfo.put("isRegular", member.getIsRegular());
         userInfo.put("subscriptionStatus", member.getSubscriptionStatus());
 
-        // Ajouter les rôles Keycloak si nécessaire
         Map<String, Object> realmAccess = jwt.getClaim("realm_access");
         if (realmAccess != null && realmAccess.containsKey("roles")) {
             userInfo.put("keycloakRoles", realmAccess.get("roles"));
@@ -118,7 +118,7 @@ public class AuthController {
         String loginUrl = "http://localhost:8088/realms/mutuelle-realm/protocol/openid-connect/auth" +
                 "?client_id=mutuelle-client" +
                 "&response_type=code" +
-                "&redirect_uri=" + "http://localhost:3000" +
+                "&redirect_uri=http://localhost:3000" +
                 "&scope=openid%20profile%20email";
 
         return ResponseEntity.ok(Map.of("loginUrl", loginUrl));
@@ -136,12 +136,21 @@ public class AuthController {
     }
 
     /**
-     * Mot de passe oublié
+     * URL de réinitialisation Keycloak
+     */
+    @GetMapping("/reset-password-url")
+    public ResponseEntity<Map<String, String>> getResetPasswordUrl() {
+        String resetUrl = "http://localhost:8088/realms/mutuelle-realm/login-actions/reset-credentials";
+        return ResponseEntity.ok(Map.of("resetUrl", resetUrl));
+    }
+
+    /**
+     * Mot de passe oublié - Demande d'envoi d'email
      */
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse> forgotPassword(@RequestParam String email) {
+    public ResponseEntity<ApiResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         try {
-            boolean sent = keycloakUserService.sendResetPasswordEmail(email);
+            boolean sent = keycloakUserService.sendResetPasswordEmail(request.getEmail());
 
             if (sent) {
                 return ResponseEntity.ok(new ApiResponse(true,
@@ -158,14 +167,30 @@ public class AuthController {
     }
 
     /**
-     * URL de réinitialisation Keycloak
+     * Réinitialisation du mot de passe avec le token
      */
-    @GetMapping("/reset-password-url")
-    public ResponseEntity<Map<String, String>> getResetPasswordUrl() {
-        String resetUrl = "http://localhost:8088/realms/mutuelle-realm/login-actions/reset-credentials";
-        return ResponseEntity.ok(Map.of("resetUrl", resetUrl));
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            boolean reset = keycloakUserService.resetPassword(request.getUserId(), request.getNewPassword());
+
+            if (reset) {
+                return ResponseEntity.ok(new ApiResponse(true,
+                        "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.", null));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse(false, "Échec de la réinitialisation du mot de passe.", null));
+            }
+        } catch (Exception e) {
+            log.error("Erreur reset password", e);
+            return ResponseEntity.internalServerError()
+                    .body(new ApiResponse(false, "Erreur lors de la réinitialisation.", null));
+        }
     }
 
+    /**
+     * Changement de mot de passe (utilisateur connecté)
+     */
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse> changePassword(
             @AuthenticationPrincipal Jwt jwt,
