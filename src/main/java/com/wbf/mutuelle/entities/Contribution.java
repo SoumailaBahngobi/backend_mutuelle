@@ -18,6 +18,7 @@ public class Contribution {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_contribution")
     private Long id;
 
     @Enumerated(EnumType.STRING)
@@ -26,32 +27,57 @@ public class Contribution {
 
     @Temporal(TemporalType.DATE)
     @JsonFormat(pattern = "yyyy-MM-dd")
+    @Column(name = "payment_date")
     private Date paymentDate;
 
     private BigDecimal amount;
 
+    @Column(name = "payment_mode")
     private String paymentMode;
 
-    // private String paymentProofFileName;
+    @Column(name = "payment_proof")
     private String paymentProof;
 
+    // Cas INDIVIDUELLE
+    @ManyToOne
+    @JoinColumn(name = "member_id")
+    private Member member;
 
-    public String getPaymentProof() {
-        return paymentProof;
+    // Cas GROUPEE
+    @ManyToMany
+    @JoinTable(
+            name = "contribution_members",
+            joinColumns = @JoinColumn(name = "contribution_id"),
+            inverseJoinColumns = @JoinColumn(name = "member_id")
+    )
+    private List<Member> members;
+
+    // Une cotisation est toujours rattachée à une période
+    @ManyToOne
+    @JoinColumn(name = "contribution_period_id")
+    private ContributionPeriod contributionPeriod;
+
+    // =============================================
+    // NOUVEAU : Relation avec Payment
+    // =============================================
+    @OneToOne
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
+
+    @Transient
+    private BigDecimal balance;
+
+    // Constructeurs
+    public Contribution() {
     }
 
-    public void setPaymentProof(String paymentProof) {
-        this.paymentProof = paymentProof;
+    public Contribution(ContributionType contributionType, BigDecimal amount, Date paymentDate) {
+        this.contributionType = contributionType;
+        this.amount = amount;
+        this.paymentDate = paymentDate;
     }
 
-    public Member getMember() {
-        return member;
-    }
-
-    public void setMember(Member member) {
-        this.member = member;
-    }
-
+    // Getters et Setters
     public Long getId() {
         return id;
     }
@@ -92,6 +118,22 @@ public class Contribution {
         this.paymentMode = paymentMode;
     }
 
+    public String getPaymentProof() {
+        return paymentProof;
+    }
+
+    public void setPaymentProof(String paymentProof) {
+        this.paymentProof = paymentProof;
+    }
+
+    public Member getMember() {
+        return member;
+    }
+
+    public void setMember(Member member) {
+        this.member = member;
+    }
+
     public List<Member> getMembers() {
         return members;
     }
@@ -116,40 +158,12 @@ public class Contribution {
         this.balance = balance;
     }
 
-    // Cas INDIVIDUELLE
-    @ManyToOne
-    @JoinColumn(name = "member_id")
-    private Member member;
-
-    // Cas GROUPEE
-    @ManyToMany
-    @JoinTable(
-            name = "contribution_members",
-            joinColumns = @JoinColumn(name = "contribution_id"),
-            inverseJoinColumns = @JoinColumn(name = "member_id")
-    )
-    private List<Member> members;
-
-    // Une cotisation est toujours rattachée à une période
-    @ManyToOne
-    @JoinColumn(name = "contribution_period_id")
-    private ContributionPeriod contributionPeriod;
-
-    // Getter pour la balance (calculé dynamiquement)
-    // Cette méthode devrait être implémentée dans le service
-    // qui calculera la somme totale des cotisations
-    // Méthode pour calculer la balance dynamiquement (ne pas persister)
-   // @Transient
-   // @JsonIgnore
-    private BigDecimal balance;
-
-    // Constructeurs
-    public Contribution() {
+    // NOUVEAU getter/setter pour payment
+    public Payment getPayment() {
+        return payment;
     }
 
-    public Contribution(ContributionType contributionType, BigDecimal amount, Date paymentDate) {
-        this.contributionType = contributionType;
-        this.amount = amount;
-        this.paymentDate = paymentDate;
+    public void setPayment(Payment payment) {
+        this.payment = payment;
     }
 }

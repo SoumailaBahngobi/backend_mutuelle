@@ -21,6 +21,7 @@ public class MemberController {
 
     private final MemberService memberService;
 
+
     /**
      * Profil du membre connecté
      */
@@ -65,13 +66,19 @@ public class MemberController {
         return ResponseEntity.ok(Map.of("message", "Upload réussi"));
     }
 
-    // ========== ADMIN ENDPOINTS ==========
+    // ========== MEMBER ENDPOINTS ==========
 
+    /**
+     * Récupérer tous les membres
+     * MODIFIÉ : maintenant accessible à tout utilisateur authentifié
+     */
     @GetMapping
-    @PreAuthorize("hasRole('PRESIDENT') or hasRole('SECRETARY') or hasRole('TREASURER')")
+    @PreAuthorize("isAuthenticated()")  // ← MODIFICATION ICI
     public List<Member> getAllMembers() {
         return memberService.getAllMembers();
     }
+
+    // ========== ADMIN ENDPOINTS ==========
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('PRESIDENT') or hasRole('SECRETARY')")

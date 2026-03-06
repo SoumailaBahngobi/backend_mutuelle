@@ -1,17 +1,15 @@
 package com.wbf.mutuelle.controllers;
 
-import com.wbf.mutuelle.entities.Contribution;
-import com.wbf.mutuelle.entities.ContributionPeriod;
-import com.wbf.mutuelle.entities.ContributionType;
-import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.entities.*;
 import com.wbf.mutuelle.repositories.ContributionPeriodRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
+import com.wbf.mutuelle.repositories.PaymentRepository;
 import com.wbf.mutuelle.services.ContributionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,6 +31,7 @@ public class ContributionController {
     private final ContributionService contributionService;
     private final MemberRepository memberRepository;
     private final ContributionPeriodRepository contributionPeriodRepository;
+    private final PaymentRepository paymentRepository;
     private final String UPLOAD_DIR = "./uploads/payment-proofs/";
 
     // =============================================
@@ -131,64 +130,138 @@ public class ContributionController {
     }
 
     // =============================================
-    // CRÉATION DE COTISATIONS
+    // CRÉATION DE COTISATIONS INDIVIDUELLES
     // =============================================
 
     @PostMapping("/individual")
-    public ResponseEntity<?> createIndividualContribution(@RequestBody Contribution contribution,
-                                                          @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<?> createIndividualContribution(@RequestBody ContributionRequest request,
+                                                          @AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            // Récupérer l'email depuis le token JWT
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
 
+            if (email == null) {
+                return ResponseEntity.badRequest().body("Email non trouvé dans le token");
+            }
+
+            // Créer une copie finale de l'email pour l'utiliser dans les lambdas
+            final String finalEmail = email;
+
+            // Chercher le membre dans la base de données
+            Member connectedMember = memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
+
+            // Créer la contribution
+            Contribution contribution = new Contribution();
+            contribution.setAmount(request.getAmount());
+            contribution.setPaymentDate(request.getPaymentDate() != null ?
+                    java.sql.Date.valueOf(request.getPaymentDate()) : new java.util.Date());
+            contribution.setPaymentMode(request.getPaymentMode() != null ?
+                    request.getPaymentMode() : "KKIAPAY");
+            contribution.setPaymentProof(request.getPaymentProof());
             contribution.setContributionType(ContributionType.INDIVIDUAL);
             contribution.setMember(connectedMember);
             contribution.setMembers(null);
 
+            // Récupérer la période de cotisation
+            ContributionPeriod period = contributionPeriodRepository.findById(request.getContributionPeriodId())
+                    .orElseThrow(() -> new RuntimeException("Période de cotisation non trouvée"));
+            contribution.setContributionPeriod(period);
+
+            // Si un paymentId est fourni, récupérer le paiement
+            if (request.getPaymentId() != null) {
+                final Long paymentId = request.getPaymentId(); // Variable final pour lambda
+                Payment payment = paymentRepository.findById(paymentId)
+                        .orElseThrow(() -> new RuntimeException("Paiement non trouvé avec ID: " + paymentId));
+                contribution.setPayment(payment);
+            }
+
+            // Sauvegarder
             Contribution createdContribution = contributionService.createContribution(contribution);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdContribution);
 
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur");
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur: " + e.getMessage());
         }
     }
 
+    // =============================================
+    // CRÉATION DE COTISATIONS GROUPÉES
+    // =============================================
+
     @PostMapping("/group")
     public ResponseEntity<?> createGroupContribution(@RequestBody GroupContributionRequest request,
-                                                     @AuthenticationPrincipal UserDetails userDetails) {
+                                                     @AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            // Récupérer l'email depuis le token JWT
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
+
+            if (email == null) {
+                return ResponseEntity.badRequest().body("Email non trouvé dans le token");
+            }
+
+            // Créer une copie finale de l'email
+            final String finalEmail = email;
+
+            // Vérifier que l'utilisateur est authentifié
+            memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
 
             // Vérifier qu'il y a au moins 2 membres
             if (request.getMemberIds() == null || request.getMemberIds().size() < 2) {
-                throw new RuntimeException("Une cotisation groupée doit concerner au moins 2 membres !");
+                return ResponseEntity.badRequest().body("Une cotisation groupée doit concerner au moins 2 membres !");
             }
 
-            // Récupérer la période de cotisation depuis la base de données
-            ContributionPeriod contributionPeriod = contributionPeriodRepository.findById(request.getContributionPeriodId())
-                    .orElseThrow(() -> new RuntimeException("Période de cotisation non trouvée avec ID: " + request.getContributionPeriodId()));
+            // Récupérer la période de cotisation
+            final Long periodId = request.getContributionPeriodId(); // Variable final pour lambda
+            ContributionPeriod contributionPeriod = contributionPeriodRepository.findById(periodId)
+                    .orElseThrow(() -> new RuntimeException("Période de cotisation non trouvée avec ID: " + periodId));
 
-            // Créer une cotisation INDIVIDUELLE pour chaque membre
+            // Récupérer le paiement si fourni
+            Payment payment = null;
+            if (request.getPaymentId() != null) {
+                final Long paymentId = request.getPaymentId(); // Variable final pour lambda
+                payment = paymentRepository.findById(paymentId)
+                        .orElseThrow(() -> new RuntimeException("Paiement non trouvé avec ID: " + paymentId));
+            }
+
+            // Créer une cotisation pour chaque membre
             List<Contribution> createdContributions = new ArrayList<>();
-            String groupReference = "GROUP_" + System.currentTimeMillis();
 
             for (Long memberId : request.getMemberIds()) {
-                Member member = memberRepository.findById(memberId)
-                        .orElseThrow(() -> new RuntimeException("Membre non trouvé avec ID: " + memberId));
+                final Long currentMemberId = memberId; // Variable final pour lambda
+                Member member = memberRepository.findById(currentMemberId)
+                        .orElseThrow(() -> new RuntimeException("Membre non trouvé avec ID: " + currentMemberId));
 
-                // Créer une nouvelle cotisation individuelle pour chaque membre
                 Contribution individualContribution = new Contribution();
                 individualContribution.setAmount(request.getAmount());
-                
-                // individualContribution.setPaymentDate(request.getPaymentDate());
-                individualContribution.setPaymentMode(request.getPaymentMode());
+
+                if (request.getPaymentDate() != null && !request.getPaymentDate().isEmpty()) {
+                    individualContribution.setPaymentDate(java.sql.Date.valueOf(request.getPaymentDate()));
+                } else {
+                    individualContribution.setPaymentDate(new java.util.Date());
+                }
+
+                individualContribution.setPaymentMode(request.getPaymentMode() != null ?
+                        request.getPaymentMode() : "KKIAPAY");
                 individualContribution.setPaymentProof(request.getPaymentProof());
                 individualContribution.setContributionPeriod(contributionPeriod);
                 individualContribution.setContributionType(ContributionType.INDIVIDUAL);
                 individualContribution.setMember(member);
+
+                // Lier le paiement si fourni
+                if (payment != null) {
+                    individualContribution.setPayment(payment);
+                }
 
                 Contribution created = contributionService.createContribution(individualContribution);
                 createdContributions.add(created);
@@ -221,7 +294,6 @@ public class ContributionController {
     @GetMapping("/group")
     public ResponseEntity<List<Contribution>> getGroupContributions() {
         try {
-            // Retourner les cotisations groupées normales (ancienne méthode)
             List<Contribution> contributions = contributionService.getContributionsByType(ContributionType.GROUP);
             return ResponseEntity.ok(contributions);
         } catch (Exception e) {
@@ -234,10 +306,16 @@ public class ContributionController {
     // =============================================
 
     @GetMapping("/my-contributions")
-    public ResponseEntity<List<Contribution>> getMyAllContributions(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<Contribution>> getMyAllContributions(@AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
+
+            final String finalEmail = email;
+            Member connectedMember = memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
 
             List<Contribution> contributions = contributionService.getContributionsByMember(connectedMember.getId());
             return ResponseEntity.ok(contributions);
@@ -248,10 +326,16 @@ public class ContributionController {
     }
 
     @GetMapping("/individual/my-contributions")
-    public ResponseEntity<List<Contribution>> getMyIndividualContributions(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<Contribution>> getMyIndividualContributions(@AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
+
+            final String finalEmail = email;
+            Member connectedMember = memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
 
             List<Contribution> contributions = contributionService.getIndividualContributionsByMember(connectedMember.getId());
             return ResponseEntity.ok(contributions);
@@ -262,10 +346,16 @@ public class ContributionController {
     }
 
     @GetMapping("/group/my-contributions")
-    public ResponseEntity<List<Contribution>> getMyGroupContributions(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<Contribution>> getMyGroupContributions(@AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
+
+            final String finalEmail = email;
+            Member connectedMember = memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
 
             List<Contribution> contributions = contributionService.getGroupContributionsByMember(connectedMember.getId());
             return ResponseEntity.ok(contributions);
@@ -290,10 +380,16 @@ public class ContributionController {
     }
 
     @GetMapping("/my-total-amount")
-    public ResponseEntity<BigDecimal> getMyTotalContributionsAmount(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<BigDecimal> getMyTotalContributionsAmount(@AuthenticationPrincipal Jwt jwt) {
         try {
-            Member connectedMember = memberRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("Membre non trouvé !"));
+            String email = jwt.getClaim("email");
+            if (email == null) {
+                email = jwt.getClaim("preferred_username");
+            }
+
+            final String finalEmail = email;
+            Member connectedMember = memberRepository.findByEmail(finalEmail)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec email: " + finalEmail));
 
             BigDecimal totalAmount = contributionService.getTotalContributionsAmountByMember(connectedMember.getId());
             return ResponseEntity.ok(totalAmount);
@@ -347,6 +443,38 @@ public class ContributionController {
     }
 
     // =============================================
+    // DTO POUR COTISATIONS INDIVIDUELLES
+    // =============================================
+
+    public static class ContributionRequest {
+        private BigDecimal amount;
+        private String paymentDate;
+        private String paymentMode;
+        private String paymentProof;
+        private Long contributionPeriodId;
+        private Long paymentId;
+
+        // Getters et Setters
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+        public String getPaymentDate() { return paymentDate; }
+        public void setPaymentDate(String paymentDate) { this.paymentDate = paymentDate; }
+
+        public String getPaymentMode() { return paymentMode; }
+        public void setPaymentMode(String paymentMode) { this.paymentMode = paymentMode; }
+
+        public String getPaymentProof() { return paymentProof; }
+        public void setPaymentProof(String paymentProof) { this.paymentProof = paymentProof; }
+
+        public Long getContributionPeriodId() { return contributionPeriodId; }
+        public void setContributionPeriodId(Long contributionPeriodId) { this.contributionPeriodId = contributionPeriodId; }
+
+        public Long getPaymentId() { return paymentId; }
+        public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
+    }
+
+    // =============================================
     // DTO POUR COTISATIONS GROUPÉES
     // =============================================
 
@@ -357,6 +485,7 @@ public class ContributionController {
         private String paymentProof;
         private Long contributionPeriodId;
         private List<Long> memberIds;
+        private Long paymentId;
 
         // Getters et Setters
         public BigDecimal getAmount() { return amount; }
@@ -376,5 +505,8 @@ public class ContributionController {
 
         public List<Long> getMemberIds() { return memberIds; }
         public void setMemberIds(List<Long> memberIds) { this.memberIds = memberIds; }
+
+        public Long getPaymentId() { return paymentId; }
+        public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
     }
 }

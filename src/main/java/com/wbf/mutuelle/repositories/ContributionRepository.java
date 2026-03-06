@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ContributionRepository extends JpaRepository<Contribution, Long> {
@@ -25,7 +26,6 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
 
     // Toutes les contributions d'un membre (individuelles)
     List<Contribution> findByMemberId(Long memberId);
-
     // =============================================
     // NOUVELLES MÉTHODES POUR L'HISTORIQUE
     // =============================================
@@ -94,4 +94,7 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     // Compter le nombre de contributions d'un membre
     @Query("SELECT COUNT(c) FROM Contribution c WHERE c.member.id = :memberId OR :memberId IN (SELECT m.id FROM c.members m)")
     Long countContributionsByMemberId(@Param("memberId") Long memberId);
+
+
+    Optional<Contribution> findByPaymentId(Long paymentId);
 }

@@ -24,8 +24,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.wbf.mutuelle.configuration.KeycloakSyncFilter;
-
 @Configuration
 @RequiredArgsConstructor
 @EnableWebSecurity
@@ -41,10 +39,22 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Routes publiques
+                        // Routes publiques (sans authentification)
                         .requestMatchers("/mutuelle/auth/**").permitAll()
                         .requestMatchers("/mutuelle/public/**").permitAll()
-                        .requestMatchers("/mutuelle/register").permitAll() // Pour compatibilité
+                        .requestMatchers("/mutuelle/register").permitAll()
+
+                        // Routes protégées (authentification requise)
+                        .requestMatchers("/mutuelle/member/**").authenticated()
+                        .requestMatchers("/mutuelle/loan_request/**").authenticated()
+                        .requestMatchers("/mutuelle/loans/**").authenticated()
+                        .requestMatchers("/mutuelle/contribution/**").authenticated()
+                        .requestMatchers("/mutuelle/contribution_period/**").authenticated()
+                        .requestMatchers("/mutuelle/event/**").authenticated()
+                        .requestMatchers("/mutuelle/notification/**").authenticated()
+                        .requestMatchers("/mutuelle/repayment/**").authenticated()
+                        .requestMatchers("/mutuelle/treasurer/**").authenticated()// mutuelle/contribution/individual
+                        .requestMatchers("/mutuelle/contribution/individual/**").authenticated()
                         // Toutes les autres routes nécessitent une authentification
                         .anyRequest().authenticated()
                 )
@@ -61,42 +71,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Configuration CORS complète - accepte plusieurs origines
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://172.30.176.1:3000"
-        ));
-
-        // Ou alternative plus flexible avec patterns (décommentez si besoin)
-        /*
+        // En développement, accepter toutes les origines locales
         configuration.setAllowedOriginPatterns(Arrays.asList(
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-            "http://172.30.176.1:*",
-            "http://192.168.*.*:*"
-        ));
-        */
-
-        configuration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*"
         ));
 
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type",
-                "X-Requested-With",
-                "Accept",
-                "Origin",
-                "Access-Control-Request-Method",
-                "Access-Control-Request-Headers"
-        ));
-
-        configuration.setExposedHeaders(Arrays.asList(
-                "Access-Control-Allow-Origin",
-                "Access-Control-Allow-Credentials"
-        ));
-
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -115,7 +99,6 @@ public class SecurityConfig {
         @Override
         public Collection<GrantedAuthority> convert(Jwt jwt) {
             Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-
             if (realmAccess == null || realmAccess.isEmpty()) {
                 return Collections.emptyList();
             }

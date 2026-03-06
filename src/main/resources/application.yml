@@ -13,9 +13,8 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    open-in-view: false  # Bonne pratique : désactiver l'anti-pattern Open-In-View
+    open-in-view: false
 
-  # IMPORTANT: Désactiver Liquibase si vous utilisez Hibernate ddl-auto
   liquibase:
     enabled: false
 
@@ -25,10 +24,9 @@ spring:
         registration:
           keycloak:
             client-id: mutuelle-client
-            #client-secret: ${KEYCLOAK_CLIENT_SECRET:zFZ8ouKFnATL1VlYVzJCrWG54IFuzXZZ}
             scope: openid,profile,email
             authorization-grant-type: authorization_code
-            redirect-uri: "http://localhost:8081/login/oauth2/code/keycloak"  # CORRIGÉ: port 8081
+            redirect-uri: "http://localhost:8081/login/oauth2/code/keycloak"
         provider:
           keycloak:
             issuer-uri: http://localhost:8088/realms/mutuelle-realm
@@ -39,18 +37,37 @@ spring:
           jwk-set-uri: http://localhost:8088/realms/mutuelle-realm/protocol/openid-connect/certs
 
 server:
-  port: 8081  # Votre application tourne sur 8081
+  port: 8081
 
 logging:
   level:
     org.springframework.security: DEBUG
     com.wbf.mutuelle: DEBUG
-    org.hibernate.SQL: DEBUG  # Pour voir les requêtes SQL
-    org.hibernate.orm.jdbc.bind: TRACE  # Pour voir les paramètres des requêtes
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
 
 # Configuration Keycloak Admin Client
 keycloak:
-  auth-server-url: http://localhost:8088           # URL du serveur Keycloak
-  realm: mutuelle-realm                             # nom du realm utilisé pour les utilisateurs
-  admin-username: soumaila                            # identifiants d'administration (master realm)
+  auth-server-url: http://localhost:8088
+  realm: mutuelle-realm
+  admin-username: soumaila
   admin-password: admin
+
+# =============================================
+# CONFIGURATION KKIAPAY
+# =============================================
+kkiapay:
+  base-url: https://api-sandbox.kkiapay.me
+  api-key: 69a6eae91dfe93dd00cc51a7
+  # À remplacer par vos vraies clés du dashboard Kkiapay
+  secret-key: ${KKIAPAY_SECRET_KEY:developpement_secret_key}
+  private-key: ${KKIAPAY_PRIVATE_KEY:developpement_private_key}
+  public-key: ${KKIAPAY_PUBLIC_KEY:developpement_public_key}
+  # URLs de callback (à ajuster selon votre déploiement)
+  callback-url: http://localhost:8081/api/payments/callback
+  success-url: http://localhost:3000/payment/success
+  error-url: http://localhost:3000/payment/error
+
+  # Configuration supplémentaire
+  timeout: 30000  # timeout en millisecondes
+  sandbox: true   # mode sandbox actif
