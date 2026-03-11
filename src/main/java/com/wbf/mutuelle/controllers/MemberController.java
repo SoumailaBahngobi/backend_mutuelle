@@ -1,10 +1,13 @@
 package com.wbf.mutuelle.controllers;
 
 import com.wbf.mutuelle.entities.Member;
+import com.wbf.mutuelle.entities.Role;
+import com.wbf.mutuelle.repositories.MemberRepository;
 import com.wbf.mutuelle.services.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
@@ -20,14 +24,20 @@ import java.util.Map;
 public class MemberController {
 
     private final MemberService memberService;
-
+    private final MemberRepository memberRepository;
 
     /**
      * Profil du membre connecté
      */
     @GetMapping("/profile")
     public ResponseEntity<Member> getProfile(@AuthenticationPrincipal Jwt jwt) {
-        String email = jwt.getClaim("email");
+        // ✅ CORRECTION: utiliser getClaimAsString au lieu de getClaim
+        String email = jwt.getClaimAsString("email");
+
+        // Alternative si getClaimAsString ne fonctionne pas:
+        // Map<String, Object> claims = jwt.getClaims();
+        // String email = (String) claims.get("email");
+
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
         return ResponseEntity.ok(member);
@@ -39,7 +49,9 @@ public class MemberController {
     @PutMapping("/profile")
     public ResponseEntity<Member> updateProfile(@AuthenticationPrincipal Jwt jwt,
                                                 @RequestBody Member memberDetails) {
-        String email = jwt.getClaim("email");
+        // ✅ CORRECTION: utiliser getClaimAsString
+        String email = jwt.getClaimAsString("email");
+
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
@@ -58,7 +70,9 @@ public class MemberController {
     @PostMapping("/upload-profile")
     public ResponseEntity<?> uploadProfileImage(@AuthenticationPrincipal Jwt jwt,
                                                 @RequestParam("file") MultipartFile file) {
-        String email = jwt.getClaim("email");
+        // ✅ CORRECTION: utiliser getClaimAsString
+        String email = jwt.getClaimAsString("email");
+
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
@@ -68,12 +82,8 @@ public class MemberController {
 
     // ========== MEMBER ENDPOINTS ==========
 
-    /**
-     * Récupérer tous les membres
-     * MODIFIÉ : maintenant accessible à tout utilisateur authentifié
-     */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")  // ← MODIFICATION ICI
+    @PreAuthorize("isAuthenticated()")
     public List<Member> getAllMembers() {
         return memberService.getAllMembers();
     }
@@ -120,5 +130,143 @@ public class MemberController {
     public ResponseEntity<Boolean> canRequestLoan(@PathVariable Long id) {
         boolean canRequest = memberService.validateMemberForLoan(id);
         return ResponseEntity.ok(canRequest);
+    }
+
+    @PostMapping("/link-keycloak")
+    public ResponseEntity<?> linkKeycloakAccount(@RequestBody Map<String, Object> request,
+                                                 Authentication authentication) {
+        try {
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            String keycloakId = jwt.getSubject();
+            String email = jwt.getClaimAsString("email");
+
+            Long memberId = Long.parseLong(request.get("memberId").toString());
+            Member member = memberRepository.findById(memberId)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé avec l'ID: " + memberId));
+
+            member.setKeycloakId(keycloakId);
+            if (email != null) {
+                member.setEmail(email);
+            }
+
+            memberRepository.save(member);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Compte Keycloak lié avec succès",
+                    "memberId", member.getId(),
+                    "keycloakId", keycloakId,
+                    "email", email
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/create-from-keycloak")
+    public ResponseEntity<?> createMemberFromKeycloak(Authentication authentication) {
+        try {
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            String keycloakId = jwt.getSubject();
+            String email = jwt.getClaimAsString("email");
+            String firstName = jwt.getClaimAsString("given_name");
+            String lastName = jwt.getClaimAsString("family_name");
+            String name = firstName + " " + lastName;
+
+            Optional<Member> existingByEmail = memberRepository.findByEmail(email);
+            if (existingByEmail.isPresent()) {
+                Member member = existingByEmail.get();
+                if (member.getKeycloakId() == null) {
+                    member.setKeycloakId(keycloakId);
+                    memberRepository.save(member);
+                }
+                return ResponseEntity.ok(Map.of(
+                        "message", "Membre existant mis à jour avec keycloakId",
+                        "member", member
+                ));
+            }
+
+            Member newMember = new Member();
+            newMember.setKeycloakId(keycloakId);
+            newMember.setEmail(email);
+            newMember.setFirstName(firstName);
+            newMember.setName(name);
+            newMember.setRole(Role.MEMBER);
+            newMember.setIsRegular(false);
+            newMember.setHasPreviousDebt(false);
+            newMember.setSubscriptionStatus("PENDING");
+
+            Member saved = memberRepository.save(newMember);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Membre créé avec succès",
+                    "member", saved
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/auto-link")
+    public ResponseEntity<?> autoLinkMember(@AuthenticationPrincipal Jwt jwt) {
+        try {
+            String keycloakId = jwt.getSubject();
+            String email = jwt.getClaimAsString("email");
+            String firstName = jwt.getClaimAsString("given_name");
+            String lastName = jwt.getClaimAsString("family_name");
+
+            Optional<Member> existingByKeycloak = memberRepository.findByKeycloakId(keycloakId);
+            if (existingByKeycloak.isPresent()) {
+                return ResponseEntity.ok(Map.of(
+                        "message", "Membre déjà lié",
+                        "member", existingByKeycloak.get()
+                ));
+            }
+
+            Optional<Member> existingByEmail = memberRepository.findByEmail(email);
+            if (existingByEmail.isPresent()) {
+                Member member = existingByEmail.get();
+                member.setKeycloakId(keycloakId);
+                memberRepository.save(member);
+                return ResponseEntity.ok(Map.of(
+                        "message", "Membre existant lié avec succès",
+                        "member", member
+                ));
+            }
+
+            Member newMember = new Member();
+            newMember.setKeycloakId(keycloakId);
+            newMember.setEmail(email);
+            newMember.setFirstName(firstName);
+            newMember.setName(firstName + " " + lastName);
+            newMember.setRole(Role.MEMBER);
+            newMember.setIsRegular(false);
+            newMember.setHasPreviousDebt(false);
+            newMember.setSubscriptionStatus("PENDING");
+
+            Member saved = memberRepository.save(newMember);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Nouveau membre créé avec succès",
+                    "member", saved
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/test")
+    public String test() {
+        return "MemberController fonctionne";
     }
 }

@@ -12,6 +12,7 @@ import java.util.List;
 @Setter
 @Getter
 @Entity
+//@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "loanRequests", "loans"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "member")
 public class Member {
@@ -20,7 +21,7 @@ public class Member {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @Column(unique = true)
+    @Column(name = "keycloak_id", unique = true)
     private String keycloakId;  // NOUVEAU - ID de l'utilisateur Keycloak
 
     private String name;
@@ -51,6 +52,7 @@ public class Member {
 
    // @Column(name = "subscription_status")
     private String subscriptionStatus = "PENDING";
+
 
     // Relations avec les prêts
     @JsonIgnore
