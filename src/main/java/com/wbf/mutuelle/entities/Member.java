@@ -23,7 +23,7 @@ public class Member {
 
     @Column(name = "keycloak_id", unique = true)
     private String keycloakId;  // NOUVEAU - ID de l'utilisateur Keycloak
-
+//Le nom et le prenom du membre
     private String name;
     private String firstName;
 
