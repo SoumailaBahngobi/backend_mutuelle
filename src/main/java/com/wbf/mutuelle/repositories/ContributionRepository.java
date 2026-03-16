@@ -46,10 +46,6 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     List<Contribution> findByMemberIdInMembersAndContributionType(@Param("memberId") Long memberId, 
                                                                  @Param("contributionType") ContributionType contributionType);
 
-    // =============================================
-    // STATISTIQUES - MÉTHODES EXISTANTES
-    // =============================================
-
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Contribution c")
     BigDecimal calculateTotalBalance();
 
@@ -73,9 +69,7 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Contribution c WHERE c.contributionType = :contributionType")
     BigDecimal getTotalAmountByType(@Param("contributionType") ContributionType contributionType);
 
-    // =============================================
-    // MÉTHODES UTILITAIRES SUPPLÉMENTAIRES
-    // =============================================
+
 
     // Trouver les contributions par période
     @Query("SELECT c FROM Contribution c WHERE c.contributionPeriod.id = :periodId")

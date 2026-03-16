@@ -85,14 +85,17 @@ public class KkiapayService {
     @Transactional
     public Payment verifyTransaction(String transactionId) {
         try {
-            String url = kkiapayConfig.getBaseUrl() + "/api/v1/transactions/" + transactionId;
-
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-API-KEY", kkiapayConfig.getApiKey());
+            // String url = kkiapayConfig.getBaseUrl() + "/api/v1/transactions/" + transactionId;
+            String url = "https://api-sandbox.kkiapay.me" + transactionId;
+           /*headers.set("X-API-KEY", kkiapayConfig.getApiKey());
             headers.set("X-SECRET-KEY", kkiapayConfig.getSecretKey());
             headers.set("X-PRIVATE-KEY", kkiapayConfig.getPrivateKey());
             headers.setContentType(MediaType.APPLICATION_JSON);
-
+            HttpHeaders headers = new HttpHeaders();*/
+            // ✅ UTILISE LA PRIVATE KEY (pk_...) POUR LE HEADER x-api-key
+            headers.set("x-api-key", kkiapayConfig.getPrivateKey());
+            headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             log.info("Vérification de la transaction: {}", transactionId);
@@ -149,9 +152,16 @@ public class KkiapayService {
     @Transactional
     public Payment refundTransaction(String transactionId) {
         try {
-            Payment payment = paymentRepository.findByTransactionId(transactionId)
+            /*Payment payment = paymentRepository.findByTransactionId(transactionId)
                     .orElseThrow(() -> new RuntimeException("Transaction non trouvée: " + transactionId));
-
+*/
+            Payment payment = paymentRepository.findByTransactionId(transactionId)
+                    .orElseGet(() -> {
+                        log.warn("ID Kkiapay {} inconnu en base, création d'une nouvelle entrée.", transactionId);
+                        Payment newPayment = new Payment();
+                        newPayment.setTransactionId(transactionId);
+                        return newPayment;
+                    });
             if (payment.getStatus() != PaymentStatus.SUCCESS) {
                 throw new RuntimeException("Seules les transactions réussies peuvent être remboursées");
             }

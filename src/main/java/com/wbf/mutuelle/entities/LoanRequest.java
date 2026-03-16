@@ -24,7 +24,7 @@ public class LoanRequest {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_loan_request")
+    @Column(name = "id_loan_request",nullable = false)
     private Long id;
 
     @Column(name = "request_amount", nullable = false)
