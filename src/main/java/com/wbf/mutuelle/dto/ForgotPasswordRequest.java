@@ -1,16 +1,12 @@
 package com.wbf.mutuelle.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
 public class ForgotPasswordRequest {
+    @NotBlank(message = "L'email est obligatoire")
+    @Email(message = "Format d'email invalide")
     private String email;
-
-    // Constructeurs
-    public ForgotPasswordRequest() {}
-
-    public ForgotPasswordRequest(String email) {
-        this.email = email;
-    }
-
-    // Getters et Setters
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
 }

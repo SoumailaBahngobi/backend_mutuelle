@@ -3,12 +3,19 @@ package com.wbf.mutuelle.services;
 import com.wbf.mutuelle.entities.*;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
 import com.wbf.mutuelle.repositories.MemberRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +26,10 @@ public class LoanRequestService {
     private final MemberService memberService;
     private final LoanAutoCreationService loanAutoCreationService;
     private final TreasurerLoanService treasurerLoanService;
+    LoanRequestService loanRequestService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public Optional<LoanRequest> getLoanRequestById(Long id) {
         return loanRequestRepository.findById(id);
@@ -33,12 +44,33 @@ public class LoanRequestService {
     }
 
     @Transactional
-    public LoanRequest createLoanRequest(LoanRequest loanRequest, String memberEmail) {
-        Member member = memberRepository.findByEmail(memberEmail)
-                .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+    public LoanRequest createLoanRequest(LoanRequest loanRequest, String userIdentifier, String keycloakId) {
+        // RECHERCHE DU MEMBRE : D'abord par keycloakId, puis par email
+        Member member = null;
 
-        // SUPPRESSION DE LA VÉRIFICATION D'ÉLIGIBILITÉ
-        // Les membres peuvent maintenant soumettre plusieurs demandes sans restriction
+        // Essayer de trouver par keycloakId d'abord
+        if (keycloakId != null && !keycloakId.isEmpty()) {
+            Optional<Member> memberByKeycloakId = memberRepository.findByKeycloakId(keycloakId);
+            if (memberByKeycloakId.isPresent()) {
+                member = memberByKeycloakId.get();
+                System.out.println(" Membre trouvé par keycloakId: " + member.getId() + " - " + member.getEmail());
+            }
+        }
+
+        // Si pas trouvé par keycloakId, essayer par email
+        if (member == null && userIdentifier != null && !userIdentifier.isEmpty()) {
+            Optional<Member> memberByEmail = memberRepository.findByEmail(userIdentifier);
+            if (memberByEmail.isPresent()) {
+                member = memberByEmail.get();
+                System.out.println(" Membre trouvé par email: " + member.getId() + " - " + member.getEmail());
+            }
+        }
+
+        // Si toujours pas trouvé, erreur
+        if (member == null) {
+            System.err.println(" Membre non trouvé - keycloakId: " + keycloakId + ", email: " + userIdentifier);
+            throw new RuntimeException("Membre non trouvé. Veuillez lier votre compte Keycloak à un membre existant.");
+        }
 
         loanRequest.setMember(member);
         loanRequest.setStatus("PENDING");
@@ -46,38 +78,37 @@ public class LoanRequestService {
         loanRequest.setLoanCreated(false);
         loanRequest.setLoanGranted(false);
 
-        return loanRequestRepository.save(loanRequest);
+        // Utilisation de entityManager.persist() pour sauvegarder
+        entityManager.persist(loanRequest);
+
+        System.out.println(" Demande de prêt créée avec succès pour le membre: " + member.getEmail());
+
+        return loanRequest;
     }
 
-    // Méthodes d'approbation par rôle
     @Transactional
     public LoanRequest approveByPresident(Long loanRequestId, String comment) {
-        LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.PRESIDENT, comment);
-        return approvedRequest;
+        return approveLoanRequest(loanRequestId, Role.PRESIDENT, comment);
     }
 
     @Transactional
     public LoanRequest approveBySecretary(Long loanRequestId, String comment) {
-        LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.SECRETARY, comment);
-        return approvedRequest;
+        return approveLoanRequest(loanRequestId, Role.SECRETARY, comment);
     }
 
     @Transactional
     public LoanRequest approveByTreasurer(Long loanRequestId, String comment) {
-        LoanRequest approvedRequest = approveLoanRequest(loanRequestId, Role.TREASURER, comment);
-        return approvedRequest;
+        return approveLoanRequest(loanRequestId, Role.TREASURER, comment);
     }
 
     private LoanRequest approveLoanRequest(Long loanRequestId, Role role, String comment) {
         LoanRequest loanRequest = loanRequestRepository.findById(loanRequestId)
                 .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
 
-        // Vérifier que la demande est en attente
         if (!"PENDING".equals(loanRequest.getStatus()) && !"IN_REVIEW".equals(loanRequest.getStatus())) {
             throw new RuntimeException("La demande ne peut pas être approuvée dans son état actuel: " + loanRequest.getStatus());
         }
 
-        // Mettre à jour l'approbation selon le rôle
         switch (role) {
             case PRESIDENT:
                 loanRequest.setPresidentApproved(true);
@@ -98,7 +129,6 @@ public class LoanRequestService {
                 throw new RuntimeException("Rôle non autorisé pour l'approbation");
         }
 
-        // Mettre à jour le statut
         if (loanRequest.isFullyApproved()) {
             loanRequest.setStatus("APPROVED");
         } else {
@@ -108,13 +138,11 @@ public class LoanRequestService {
         return loanRequestRepository.save(loanRequest);
     }
 
-    // Méthode de rejet
     @Transactional
     public LoanRequest rejectLoanRequest(Long loanRequestId, String rejectionReason, String rejectedByRole) {
         LoanRequest loanRequest = loanRequestRepository.findById(loanRequestId)
                 .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
 
-        // Vérifier que la demande peut être rejetée
         if ("APPROVED".equals(loanRequest.getStatus()) || "REJECTED".equals(loanRequest.getStatus())) {
             throw new RuntimeException("La demande ne peut pas être rejetée dans son état actuel");
         }
@@ -125,7 +153,6 @@ public class LoanRequestService {
         return loanRequestRepository.save(loanRequest);
     }
 
-    // Réinitialiser une approbation (admin seulement)
     @Transactional
     public LoanRequest resetApproval(Long loanRequestId, String role) {
         LoanRequest loanRequest = loanRequestRepository.findById(loanRequestId)
@@ -151,19 +178,16 @@ public class LoanRequestService {
                 throw new RuntimeException("Rôle invalide");
         }
 
-        // Revenir au statut IN_REVIEW si ce n'est pas déjà REJECTED
         if (!"REJECTED".equals(loanRequest.getStatus())) {
             loanRequest.setStatus("IN_REVIEW");
         }
 
-        // Réinitialiser le flag de création de prêt
         loanRequest.setLoanCreated(false);
         loanRequest.setLoanGranted(false);
 
         return loanRequestRepository.save(loanRequest);
     }
 
-    // Méthodes de consultation par statut
     public List<LoanRequest> getPendingRequests() {
         return loanRequestRepository.findByStatus("PENDING");
     }
@@ -180,21 +204,18 @@ public class LoanRequestService {
         return loanRequestRepository.findByStatus("REJECTED");
     }
 
-    // Tableau de bord pour les validateurs
     public Map<String, Object> getValidatorDashboard(String userEmail) {
         Member member = memberRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
         Map<String, Object> dashboard = new HashMap<>();
 
-        // Statistiques générales
         dashboard.put("totalRequests", loanRequestRepository.count());
         dashboard.put("pendingRequests", getPendingRequests().size());
         dashboard.put("inReviewRequests", getInReviewRequests().size());
         dashboard.put("approvedRequests", getApprovedRequests().size());
         dashboard.put("rejectedRequests", getRejectedRequests().size());
 
-        // Demandes selon le rôle de l'utilisateur
         if (member.isPresident()) {
             dashboard.put("myPendingApprovals",
                     loanRequestRepository.findByPresidentApproved(false).stream()
@@ -218,7 +239,6 @@ public class LoanRequestService {
         return dashboard;
     }
 
-    // Demandes en attente de validation par l'utilisateur courant
     public List<LoanRequest> getPendingApprovalsForCurrentUser(String userEmail) {
         Member member = memberRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
@@ -228,29 +248,21 @@ public class LoanRequestService {
 
         return allPending.stream()
                 .filter(loanRequest -> {
-                    if (member.isPresident() && !loanRequest.getPresidentApproved()) {
-                        return true;
-                    }
-                    if (member.isSecretary() && !loanRequest.getSecretaryApproved()) {
-                        return true;
-                    }
-                    if (member.isTreasurer() && !loanRequest.getTreasurerApproved()) {
-                        return true;
-                    }
+                    if (member.isPresident() && !loanRequest.getPresidentApproved()) return true;
+                    if (member.isSecretary() && !loanRequest.getSecretaryApproved()) return true;
+                    if (member.isTreasurer() && !loanRequest.getTreasurerApproved()) return true;
                     return false;
                 })
                 .collect(Collectors.toList());
     }
-
-    // NOUVELLES METHODES POUR LES RESPONSABLES
+/*
     public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
         return loanRequestRepository.findAll().stream()
                 .map(this::enrichWithApprovalDetails)
                 .collect(Collectors.toList());
     }
-
+*/
     private LoanRequest enrichWithApprovalDetails(LoanRequest loanRequest) {
-        // Ajouter des informations calculées sur l'état d'approbation
         loanRequest.setApprovalProgress(calculateApprovalProgress(loanRequest));
         return loanRequest;
     }
@@ -258,12 +270,10 @@ public class LoanRequestService {
     private Map<String, Object> calculateApprovalProgress(LoanRequest loanRequest) {
         Map<String, Object> progress = new HashMap<>();
 
-        // Statut des approbations
         progress.put("presidentApproved", loanRequest.getPresidentApproved());
         progress.put("secretaryApproved", loanRequest.getSecretaryApproved());
         progress.put("treasurerApproved", loanRequest.getTreasurerApproved());
 
-        // Pourcentage d'approbation
         int approvedCount = 0;
         if (loanRequest.getPresidentApproved()) approvedCount++;
         if (loanRequest.getSecretaryApproved()) approvedCount++;
@@ -273,7 +283,6 @@ public class LoanRequestService {
         progress.put("approvedCount", approvedCount);
         progress.put("totalApprovers", 3);
 
-        // Prochain approbateur requis
         List<String> pendingApprovers = new ArrayList<>();
         if (!loanRequest.getPresidentApproved()) pendingApprovers.add("PRESIDENT");
         if (!loanRequest.getSecretaryApproved()) pendingApprovers.add("SECRETARY");
@@ -294,24 +303,17 @@ public class LoanRequestService {
         status.put("approvalProgress", calculateApprovalProgress(loanRequest));
         status.put("currentStatus", loanRequest.getStatus());
 
-        // Détails des approbations
         Map<String, Object> approvalDetails = new HashMap<>();
-
-        // Président
         approvalDetails.put("president", Map.of(
                 "approved", loanRequest.getPresidentApproved(),
                 "approvalDate", loanRequest.getPresidentApprovalDate(),
                 "comment", loanRequest.getPresidentComment()
         ));
-
-        // Secrétaire
         approvalDetails.put("secretary", Map.of(
                 "approved", loanRequest.getSecretaryApproved(),
                 "approvalDate", loanRequest.getSecretaryApprovalDate(),
                 "comment", loanRequest.getSecretaryComment()
         ));
-
-        // Trésorier
         approvalDetails.put("treasurer", Map.of(
                 "approved", loanRequest.getTreasurerApproved(),
                 "approvalDate", loanRequest.getTreasurerApprovalDate(),
@@ -319,11 +321,9 @@ public class LoanRequestService {
         ));
 
         status.put("approvalDetails", approvalDetails);
-
         return status;
     }
 
-    // Voir toutes les dd pret val et non val
     public List<LoanRequest> getAllLoanRequestsWithFilters(String status, Long memberId) {
         if (status != null && memberId != null) {
             return loanRequestRepository.findAllWithFilters(status, memberId);
@@ -341,19 +341,13 @@ public class LoanRequestService {
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
         Map<String, Object> dashboard = new HashMap<>();
-
         dashboard.put("totalRequests", loanRequestRepository.count());
         dashboard.put("pendingRequests", getPendingRequests().size());
         dashboard.put("inReviewRequests", getInReviewRequests().size());
         dashboard.put("approvedRequests", getApprovedRequests().size());
         dashboard.put("rejectedRequests", getRejectedRequests().size());
-
         dashboard.put("allRequests", getAllLoanRequestsWithApprovalDetails());
-
-        // Demandes en attente de validation par l'utilisateur
         dashboard.put("myPendingApprovals", getPendingApprovalsForCurrentUser(userEmail));
-
-        // Demandes selon le statut pour affichage filtré
         dashboard.put("pendingList", getPendingRequests());
         dashboard.put("inReviewList", getInReviewRequests());
         dashboard.put("approvedList", getApprovedRequests());
@@ -366,25 +360,17 @@ public class LoanRequestService {
         Member member = memberRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
-        List<LoanRequest> allRequests = loanRequestRepository.findAll();
-
-        return allRequests.stream()
+        return loanRequestRepository.findAll().stream()
                 .filter(request -> {
-                    if (member.isPresident() && request.getPresidentApprovalDate() != null) {
-                        return true;
-                    }
-                    if (member.isSecretary() && request.getSecretaryApprovalDate() != null) {
-                        return true;
-                    }
-                    if (member.isTreasurer() && request.getTreasurerApprovalDate() != null) {
-                        return true;
-                    }
+                    if (member.isPresident() && request.getPresidentApprovalDate() != null) return true;
+                    if (member.isSecretary() && request.getSecretaryApprovalDate() != null) return true;
+                    if (member.isTreasurer() && request.getTreasurerApprovalDate() != null) return true;
                     return false;
                 })
                 .sorted((r1, r2) -> {
                     Date date1 = getLatestApprovalDate(r1, member);
                     Date date2 = getLatestApprovalDate(r2, member);
-                    return date2.compareTo(date1); // Tri décroissant
+                    return date2.compareTo(date1);
                 })
                 .collect(Collectors.toList());
     }
@@ -399,23 +385,18 @@ public class LoanRequestService {
         if (member.isTreasurer() && request.getTreasurerApprovalDate() != null) {
             return request.getTreasurerApprovalDate();
         }
-        return new Date(0); // Date très ancienne si pas d'approbation
+        return new Date(0);
     }
 
-    public List<LoanRequest> getLoanRequestsByMemberEmail(String username) {
-        return loanRequestRepository.findByMemberEmail(username);
-    }
+
 
     public List<LoanRequest> getApprovedLoans() {
         return loanRequestRepository.findByStatusAndIsRepaid("APPROVED", false);
     }
 
     public List<Repayment> getRepaymentsByLoanRequest(Long id) {
-        Optional<LoanRequest> loanRequestOpt = loanRequestRepository.findById(id);
-        if (loanRequestOpt.isEmpty()) {
-            throw new RuntimeException("Demande de prêt non trouvée");
-        }
-        LoanRequest loanRequest = loanRequestOpt.get();
+        LoanRequest loanRequest = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande de prêt non trouvée"));
         return loanRequest.getRepayments();
     }
 
@@ -431,9 +412,7 @@ public class LoanRequestService {
             calendar.add(Calendar.MONTH, 1);
             Repayment repayment = new Repayment();
             repayment.setLoanRequest(loanRequest);
-            repayment.setAmount(null);
             repayment.setDueDate(calendar.getTime());
-            repayment.setAmount(null);
             repayments.add(repayment);
         }
 
@@ -441,13 +420,11 @@ public class LoanRequestService {
         loanRequestRepository.save(loanRequest);
     }
 
-    // ✅ NOUVELLE MÉTHODE : Forcer la création d'un prêt (pour administration)
     @Transactional
     public void forceCreateLoanFromRequest(Long loanRequestId) {
         loanAutoCreationService.forceCreateLoan(loanRequestId);
     }
 
-    // ✅ NOUVELLES MÉTHODES POUR LE TRÉSORIER
     public List<LoanRequest> getApprovedPendingGrant() {
         return treasurerLoanService.getApprovedPendingGrant();
     }
@@ -464,5 +441,90 @@ public class LoanRequestService {
     @Transactional
     public void cancelLoanGrant(Long loanRequestId, String reason) {
         treasurerLoanService.cancelLoanGrant(loanRequestId, reason);
+    }
+/*
+    public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {
+        log.info("🔍 Récupération des demandes de prêt pour l'email: {}", email);
+
+        try {
+            // Validation
+            if (email == null || email.trim().isEmpty()) {
+                log.error("❌ Email est null ou vide");
+                return new ArrayList<>();
+            }
+
+            // 1. Chercher le membre par email
+            Optional<Member> memberOpt = memberRepository.findByEmail(email);
+
+            if (memberOpt.isEmpty()) {
+                log.error("❌ Membre non trouvé avec l'email: {}", email);
+                return new ArrayList<>();
+            }
+
+            Member member = memberOpt.get();
+            log.info("✅ Membre trouvé: ID={}, Email={}, KeycloakId={}",
+                    member.getId(), member.getEmail(), member.getKeycloakId());
+
+            // 2. Récupérer les demandes de prêt du membre
+            List<LoanRequest> requests = loanRequestRepository.findByMemberId(member.getId());
+
+            // 3. Initialiser les relations LAZY si nécessaire (pour éviter les erreurs de sérialisation)
+            requests.forEach(request -> {
+                if (request.getMember() != null) {
+                    request.getMember().getEmail(); // Force l'initialisation
+                }
+            });
+
+            log.info("📊 {} demande(s) trouvée(s)", requests.size());
+
+            return requests;
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de la récupération des demandes pour {}", email, e);
+            // Retourner une liste vide au lieu de propager l'erreur
+            return new ArrayList<>();
+        }
+    }
+*/
+    public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {
+        log.info("🔍 Récupération des demandes de prêt pour l'email: {}", email);
+
+        try {
+            if (email == null || email.trim().isEmpty()) {
+                log.error("❌ Email est null ou vide");
+                return new ArrayList<>();
+            }
+
+            // 1. Chercher le membre par email
+            Optional<Member> memberOpt = memberRepository.findByEmail(email);
+
+            if (memberOpt.isEmpty()) {
+                log.error("❌ Membre non trouvé avec l'email: {}", email);
+                return new ArrayList<>();
+            }
+
+            Member member = memberOpt.get();
+            log.info("✅ Membre trouvé: ID={}", member.getId());
+
+            // 2. Récupérer les demandes de prêt avec une requête qui charge tout
+            List<LoanRequest> requests = loanRequestRepository.findByMemberIdWithDetails(member.getId());
+
+            log.info("📊 {} demande(s) trouvée(s)", requests.size());
+            return requests;
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de la récupération des demandes pour {}", email, e);
+            return new ArrayList<>();
+        }
+
+
+
+    }
+
+    public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
+        List<LoanRequest> requests = loanRequestRepository.findAllWithAllDetails();
+        return requests.stream()
+                .map(this::enrichWithApprovalDetails)
+                .collect(Collectors.toList());
     }
 }

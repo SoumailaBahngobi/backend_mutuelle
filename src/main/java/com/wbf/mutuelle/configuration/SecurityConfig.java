@@ -1,96 +1,70 @@
 package com.wbf.mutuelle.configuration;
 
-import com.wbf.mutuelle.configuration.JwtAuthenticationFilter;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.core.convert.converter.Converter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import org.springframework.http.HttpMethod;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Configuration
+@RequiredArgsConstructor
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    @Autowired
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    private final KeycloakSyncFilter keycloakSyncFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Routes publiques
-                        .requestMatchers(
+                        // Routes publiques (sans authentification)
+                        .requestMatchers("/mutuelle/auth/**").permitAll()
+                        .requestMatchers("/mutuelle/public/**").permitAll()
+                        .requestMatchers("/mutuelle/register").permitAll()
+                        .requestMatchers("/mutuelle/**").permitAll()
+                        //http://localhost:3000/mutuelle/contribution/individual
 
-                                "/mutuelle/**",
-                                "/mutuelle/register",
-                                "/mutuelle/login",
-                                "/mutuelle/contribution_period/**",
-                                "/mutuelle/contribution/upload/payment-proof/**",
-                                "/mutuelle/event/**",
-                                "/mutuelle/repayment/history",
-                                "/mutuelle/repayment/history/**",
-                                "/mutuelle/upload/**",
-                                "/mutuelle/member/upload-profile",
-                                "/mutuelle/member/profile/photo",
-                                "/mutuelle/member/**",
-                                "/mutuelle/loans",
-                                "/mutuelle/notification",
-                                "/mutuelle/contribution/individual",
-                                "/mutuelle/member/profile/update/**",
-                                "/mutuelle/member/forgot-password",
-                                "/mutuelle/member/reset-password",
-                                "/mutuelle/repayment/**",
-                                "/mutuelle/repayment/simple",
-                                "mutuelle/repayment"
-                        ).permitAll()
-
-                        // Endpoints spécifiques pour le trésorier
-                        .requestMatchers("/mutuelle/treasurer/**").hasRole("TREASURER")
-                        .requestMatchers("/mutuelle/loan_request/treasurer/**").hasRole("TREASURER")
-
-                        // Endpoints nécessitant des rôles de responsables
-                        .requestMatchers("/mutuelle/loan_request/*/approve", "/mutuelle/loan_request/*/reject").hasAnyRole("PRESIDENT", "SECRETARY", "TREASURER", "ADMIN")
-
-                        // Upload de profil
-                        .requestMatchers(HttpMethod.POST, "/mutuelle/member/upload-profile").authenticated()
-
-                        // Demandes de prêt
-                        .requestMatchers(HttpMethod.POST, "/mutuelle/loan_request").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/mutuelle/loan_request/**").authenticated()
-
-                        // Cotisations
-                        .requestMatchers(HttpMethod.POST, "/mutuelle/contribution/**").authenticated()
-
-                        // Par défaut, toutes les autres routes sous /mutuelle/** requièrent une authentification
-                        .requestMatchers("/mutuelle/**").authenticated()
-
-                        // Toute autre requête doit être authentifiée
+                        // Routes protégées (authentification requise)
+                        .requestMatchers("/mutuelle/member/**").authenticated()
+                        .requestMatchers("/mutuelle/loan_request/**").authenticated()
+                        .requestMatchers("/mutuelle/loans/**").authenticated()
+                        .requestMatchers("/mutuelle/contribution/**").authenticated()
+                        .requestMatchers("/mutuelle/contribution_period/**").authenticated()
+                        .requestMatchers("/mutuelle/event/**").authenticated()
+                        .requestMatchers("/mutuelle/notification/**").authenticated()
+                        .requestMatchers("/mutuelle/repayment/**").authenticated()
+                        .requestMatchers("/mutuelle/treasurer/**").authenticated()// mutuelle/contribution/individual
+                        .requestMatchers("/mutuelle/contribution/individual/**").authenticated()
+                        // Toutes les autres routes nécessitent une authentification
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                );
+
+        http.addFilterAfter(keycloakSyncFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
@@ -98,18 +72,49 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // En développement, accepter toutes les origines locales
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*"
+        ));
+
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    private JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(new KeycloakRoleConverter());
+        return converter;
+    }
+
+    static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
+        @Override
+        public Collection<GrantedAuthority> convert(Jwt jwt) {
+            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+            if (realmAccess == null || realmAccess.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            @SuppressWarnings("unchecked")
+            Collection<String> roles = (Collection<String>) realmAccess.get("roles");
+
+            if (roles == null || roles.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            return roles.stream()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .collect(Collectors.toList());
+        }
     }
 }

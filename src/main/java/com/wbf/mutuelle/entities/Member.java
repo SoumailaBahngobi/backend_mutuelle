@@ -3,17 +3,16 @@ package com.wbf.mutuelle.entities;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Setter
 @Getter
 @Entity
+//@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "loanRequests", "loans"})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "member")
 public class Member {
@@ -22,85 +21,40 @@ public class Member {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
+    @Column(name = "keycloak_id", unique = true)
+    private String keycloakId;  // NOUVEAU - ID de l'utilisateur Keycloak
+//Le nom et le prenom du membre
     private String name;
     private String firstName;
+
+    @Column(unique = true)
     private String email;
-    private String password;
+
+    @JsonIgnore
+    private String password;  // Gardé pour compatibilité mais non utilisé
+
     private String npi;
     private String phone;
-
-    @Column(name = "profile_image")
     private String profileImage;
 
     @Enumerated(EnumType.STRING)
     private Role role;
 
     // Champs pour la gestion des prêts
-    @Column(name = "is_regular")
+   // @Column(name = "is_regular")
     private Boolean isRegular = false;
 
-    public Boolean getHasPreviousDebt() {
-        return hasPreviousDebt;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getNpi() {
-        return npi;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public String getProfileImage() {
-        return profileImage;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public String getSubscriptionStatus() {
-        return subscriptionStatus;
-    }
-
-    public LocalDate getLastSubscriptionDate() {
-        return lastSubscriptionDate;
-    }
-
-    public Boolean getRegular() {
-        return isRegular;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    @Column(name = "has_previous_debt")
+   // @Column(name = "has_previous_debt")
     private Boolean hasPreviousDebt = false;
 
-    @Column(name = "last_subscription_date")
+    //@Column(name = "last_subscription_date")
     private LocalDate lastSubscriptionDate;
 
-    @Column(name = "subscription_status")
+   // @Column(name = "subscription_status")
     private String subscriptionStatus = "PENDING";
 
-    // RELATIONS AVEC LES PRÊTS - AJOUTEZ CES DEUX LIGNES
+
+    // Relations avec les prêts
     @JsonIgnore
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<LoanRequest> loanRequests = new ArrayList<>();
@@ -109,24 +63,8 @@ public class Member {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Loan> loans = new ArrayList<>();
 
-    public Member() {
-    }
-
-    public Member(Long id, String name, String firstName, String email,
-                  String password, String npi, String phone, Role role) {
-        this.id = id;
-        this.name = name;
-        this.firstName = firstName;
-        this.email = email;
-        this.password = password;
-        this.npi = npi;
-        this.phone = phone;
-        this.role = role;
-        this.isRegular = false;
-        this.hasPreviousDebt = false;
-        this.loanRequests = new ArrayList<>();
-        this.loans = new ArrayList<>();
-    }
+    // Constructeurs
+    public Member() {}
 
     public boolean canRequestLoan() {
         return isSubscriptionActive() &&
@@ -147,33 +85,30 @@ public class Member {
     }
 
     public boolean isPresident() {
-        return role != null && "PRESIDENT".equalsIgnoreCase(role.name());
+        return role == Role.PRESIDENT;
     }
 
     public boolean isSecretary() {
-        return role != null && "SECRETARY".equalsIgnoreCase(role.name());
+        return role == Role.SECRETARY;
     }
 
     public boolean isTreasurer() {
-        return role != null && "TREASURER".equalsIgnoreCase(role.name());
+        return role == Role.TREASURER;
     }
 
     public boolean isAdmin() {
-        return role != null && "ADMIN".equalsIgnoreCase(role.name());
+        return role == Role.ADMIN;
     }
 
-    // Méthodes utilitaires pour éviter les NullPointerException
-    public List<LoanRequest> getLoanRequests() {
-        if (this.loanRequests == null) {
-            this.loanRequests = new ArrayList<>();
-        }
-        return loanRequests;
+    public boolean isMember() {
+        return role == Role.MEMBER;
     }
 
-    public List<Loan> getLoans() {
-        if (this.loans == null) {
-            this.loans = new ArrayList<>();
-        }
-        return loans;
+    public String getKeycloakId() {
+        return keycloakId;
+    }
+
+    public void setKeycloakId(String keycloakId) {
+        this.keycloakId = keycloakId;
     }
 }

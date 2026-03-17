@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ContributionRepository extends JpaRepository<Contribution, Long> {
@@ -25,7 +26,6 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
 
     // Toutes les contributions d'un membre (individuelles)
     List<Contribution> findByMemberId(Long memberId);
-
     // =============================================
     // NOUVELLES MÉTHODES POUR L'HISTORIQUE
     // =============================================
@@ -45,10 +45,6 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     @Query("SELECT c FROM Contribution c WHERE :memberId IN (SELECT m.id FROM c.members m) AND c.contributionType = :contributionType")
     List<Contribution> findByMemberIdInMembersAndContributionType(@Param("memberId") Long memberId, 
                                                                  @Param("contributionType") ContributionType contributionType);
-
-    // =============================================
-    // STATISTIQUES - MÉTHODES EXISTANTES
-    // =============================================
 
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Contribution c")
     BigDecimal calculateTotalBalance();
@@ -73,9 +69,7 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Contribution c WHERE c.contributionType = :contributionType")
     BigDecimal getTotalAmountByType(@Param("contributionType") ContributionType contributionType);
 
-    // =============================================
-    // MÉTHODES UTILITAIRES SUPPLÉMENTAIRES
-    // =============================================
+
 
     // Trouver les contributions par période
     @Query("SELECT c FROM Contribution c WHERE c.contributionPeriod.id = :periodId")
@@ -94,4 +88,7 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     // Compter le nombre de contributions d'un membre
     @Query("SELECT COUNT(c) FROM Contribution c WHERE c.member.id = :memberId OR :memberId IN (SELECT m.id FROM c.members m)")
     Long countContributionsByMemberId(@Param("memberId") Long memberId);
+
+
+    Optional<Contribution> findByPaymentId(Long paymentId);
 }

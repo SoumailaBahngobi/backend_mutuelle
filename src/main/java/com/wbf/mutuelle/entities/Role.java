@@ -4,5 +4,6 @@ public enum Role {
     MEMBER,
     PRESIDENT,
     SECRETARY,
-    TREASURER
+    TREASURER,
+    ADMIN
 }
