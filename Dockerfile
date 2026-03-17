@@ -1,16 +1,17 @@
-FROM eclipse-temurin:21-jre-alpine
+# 1. Construire le projet Maven
+./mvnw clean package -DskipTests
 
-WORKDIR /app
-COPY target/*.jar app.jar
+# 2. Construire l'image Docker
+docker build -t mutuelle-backend .
 
-# Ajouter curl pour le healthcheck
-RUN apk add --no-cache curl
+# 3. Tester avec ElephantSQL
+docker run -p 8081:8081 \
+  -e DB_URL="jdbc:postgresql://tyke.db.elephantsql.com:5432/votre_user?sslmode=require" \
+  -e DB_USERNAME="votre_user" \
+  -e DB_PASSWORD="votre_password" \
+  -e JPA_DDL_AUTO="update" \
+  -e SERVER_PORT="8081" \
+  mutuelle-backend
 
-EXPOSE 8081
-
-# Santé du conteneur avec plus de temps
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8081/actuator/health || exit 1
-
-# Démarrer l'application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# 4. Vérifier que l'application répond
+curl http://localhost:8081/actuator/health
