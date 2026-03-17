@@ -7,10 +7,8 @@ health:
   initialDelaySeconds: 30
   periodSeconds: 30
   timeoutSeconds: 5
-  successThreshold: 1
-  failureThreshold: 3
 env:
-  # ===== BASE DE DONNÉES =====
+  # === BASE DE DONNÉES ===
   - name: DB_URL
     value: "jdbc:postgresql://postgres:5432/mutuelle"
   - name: DB_USERNAME
@@ -19,61 +17,21 @@ env:
     value: "admin"
   - name: JPA_DDL_AUTO
     value: "update"
-  - name: JPA_SHOW_SQL
-    value: "true"
-
-  # ===== KEYCLOAK =====
+  
+  # === PROFIL ACTIF ===
+  - name: SPRING_PROFILES_ACTIVE
+    value: "prod"
+  
+  # === SERVER ===
+  - name: SERVER_PORT
+    value: "8081"
+  
+  # === KEYCLOAK ===
   - name: KEYCLOAK_AUTH_SERVER_URL
     value: "http://keycloak:8080"
-  - name: KEYCLOAK_ISSUER_URI
-    value: "http://keycloak:8080/realms/mutuelle-realm"
-  - name: KEYCLOAK_JWK_URI
-    value: "http://keycloak:8080/realms/mutuelle-realm/protocol/openid-connect/certs"
-  - name: KEYCLOAK_CLIENT_ID
-    value: "mutuelle-client"
-  - name: KEYCLOAK_CLIENT_SECRET
-    value: ""
   - name: KEYCLOAK_REALM
     value: "mutuelle-realm"
   - name: KEYCLOAK_ADMIN_USERNAME
     value: "soumaila"
   - name: KEYCLOAK_ADMIN_PASSWORD
     value: "admin"
-  - name: KEYCLOAK_REDIRECT_URI
-    value: "https://${BACKEND_DOMAIN}/login/oauth2/code/keycloak"
-
-  # ===== SERVER =====
-  - name: SERVER_PORT
-    value: "8081"
-
-  # ===== LOGGING =====
-  - name: LOG_LEVEL_SECURITY
-    value: "DEBUG"
-  - name: LOG_LEVEL_APP
-    value: "DEBUG"
-  - name: LOG_LEVEL_SQL
-    value: "DEBUG"
-  - name: LOG_LEVEL_JDBC
-    value: "TRACE"
-
-  # ===== KKIAPAY =====
-  - name: KKIAPAY_BASE_URL
-    value: "https://kkiapay-redirect.com"
-  - name: KKIAPAY_API_KEY
-    value: "tpk_3011c9e2170a11f1b6a0874a5fa1f25d"
-  - name: KKIAPAY_SECRET_KEY
-    value: "sk_8ec7612a1b6755a98cdc7bf234d32fb3a3b6f70c8a5dc2f465dcf25532e71fa2"
-  - name: KKIAPAY_PRIVATE_KEY
-    value: "pk_5195b216408e751d95d4a4c2e65d19249cb14fc2faee8094d4c4d2415fa9a295"
-  - name: KKIAPAY_PUBLIC_KEY
-    value: "23c4757a0601fabd4c3d9e1bb5992c80a0db12cc"
-  - name: KKIAPAY_CALLBACK_URL
-    value: "https://${BACKEND_DOMAIN}/api/payments/callback"
-  - name: KKIAPAY_SUCCESS_URL
-    value: "https://${FRONTEND_DOMAIN}/payment/success"
-  - name: KKIAPAY_ERROR_URL
-    value: "https://${FRONTEND_DOMAIN}/payment/error"
-  - name: KKIAPAY_TIMEOUT
-    value: "30000"
-  - name: KKIAPAY_SANDBOX
-    value: "true"
