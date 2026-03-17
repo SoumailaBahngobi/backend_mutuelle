@@ -1,8 +1,9 @@
 spring:
-liquibase:
-    enabled: false
+  liquibase:
+    enabled: false  # ✅ Liquibase est bien désactivé
+  
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/mutuelle}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/mutuelle}  # ✅ Utilise les variables d'env
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
@@ -22,14 +23,12 @@ liquibase:
 server:
   port: ${SERVER_PORT:8081}
 
-# Configuration Keycloak
 keycloak:
   auth-server-url: ${KEYCLOAK_AUTH_SERVER_URL:http://localhost:8088}
   realm: ${KEYCLOAK_REALM:mutuelle-realm}
   admin-username: ${KEYCLOAK_ADMIN_USERNAME:soumaila}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 
-# Logging pour le debug
 logging:
   level:
     com.wbf.mutuelle: DEBUG
