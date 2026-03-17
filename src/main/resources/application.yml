@@ -1,4 +1,6 @@
 spring:
+liquibase:
+    enabled: false
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/mutuelle}
     username: ${DB_USERNAME:postgres}
