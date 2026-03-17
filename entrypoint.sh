@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo "========================================="
-echo "🔍 DIAGNOSTIC DU CONTENEUR"
+echo " DIAGNOSTIC DU CONTENEUR"
 echo "========================================="
 echo "1. Variables d'environnement:"
 env | grep -E "DB_|SPRING_|KEYCLOAK_|SERVER_"
