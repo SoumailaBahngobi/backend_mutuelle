@@ -8,7 +8,7 @@ env | grep -E "DB_|SPRING_|KEYCLOAK_|SERVER_"
 
 echo -e "\n2. Test de connexion à PostgreSQL:"
 if [ -z "$DB_URL" ]; then
-    echo "❌ DB_URL non définie"
+    echo "DB_URL non définie"
 else
     echo "DB_URL = $DB_URL"
     # Extraire l'hôte et le port
@@ -22,9 +22,9 @@ else
 
     nc -zv $DB_HOST $DB_PORT 2>&1
     if [ $? -eq 0 ]; then
-        echo "✅ Port PostgreSQL accessible"
+        echo "Port PostgreSQL accessible"
     else
-        echo "❌ Impossible d'accéder à PostgreSQL"
+        echo " Impossible d'accéder à PostgreSQL"
     fi
 fi
 

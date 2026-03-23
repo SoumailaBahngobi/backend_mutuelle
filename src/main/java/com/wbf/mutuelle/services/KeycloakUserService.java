@@ -29,9 +29,10 @@ public class KeycloakUserService {
 
     private final Keycloak keycloakAdmin;
     private final MemberRepository memberRepository;
+    private final EmailService emailService;  // ← AJOUTÉ
 
     @Value("${keycloak.auth-server-url}")
-    private String serverUrl;  // ← AJOUTÉ
+    private String serverUrl;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -76,6 +77,9 @@ public class KeycloakUserService {
             Member savedMember = memberRepository.save(member);
             log.info("Utilisateur créé avec succès dans Keycloak et DB: {}, rôle: {}",
                     request.getEmail(), role);
+
+            // 4. ENVOYER L'EMAIL DE BIENVENUE
+            sendWelcomeEmail(savedMember, request.getPassword());
 
             return savedMember;
 
@@ -144,6 +148,47 @@ public class KeycloakUserService {
         }
     }
 
+    // ==================== ENVOI D'EMAIL DE BIENVENUE ====================
+
+    private void sendWelcomeEmail(Member member, String password) {
+        try {
+            String subject = " Bienvenue sur la Mutuelle WBF !";
+
+            String body = String.format("""
+                Bonjour %s %s,
+                
+                Votre compte a été créé avec succès sur la plateforme Mutuelle WBF.
+                
+                Vos informations de connexion :
+                ────────────────────────────────
+                Email : %s
+                Mot de passe : %s
+                ────────────────────────────────
+                
+                 Accédez à votre espace : http://localhost:3000/login
+                
+                 Pour votre sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.
+                
+                 Besoin d'aide ? Contactez-nous à support@mutuelle-wbf.com
+                
+                Cordialement,
+                L'équipe Mutuelle WBF
+                """,
+                    member.getFirstName(),
+                    member.getName(),
+                    member.getEmail(),
+                    password
+            );
+
+            emailService.sendSimpleEmail(member.getEmail(), subject, body);
+            log.info("Email de bienvenue envoyé à: {}", member.getEmail());
+
+        } catch (Exception e) {
+            // Ne pas bloquer l'inscription si l'email échoue, juste logger
+            log.error("Erreur lors de l'envoi de l'email de bienvenue à {}: {}", member.getEmail(), e.getMessage());
+        }
+    }
+
     // ==================== MOT DE PASSE OUBLIÉ ====================
 
     public boolean sendResetPasswordEmail(String email) {
@@ -160,12 +205,39 @@ public class KeycloakUserService {
             // Envoyer l'email de réinitialisation Keycloak
             userResource.executeActionsEmail(List.of("UPDATE_PASSWORD"));
 
+            // Envoyer un email de confirmation
+            sendResetPasswordConfirmationEmail(email);
+
             log.info("Email de réinitialisation envoyé à: {}", email);
             return true;
 
         } catch (Exception e) {
             log.error("Erreur lors de l'envoi de l'email", e);
             return false;
+        }
+    }
+
+    private void sendResetPasswordConfirmationEmail(String email) {
+        try {
+            String subject = " Réinitialisation de votre mot de passe - Mutuelle WBF";
+            String body = String.format("""
+                Bonjour,
+                
+                Vous avez demandé la réinitialisation de votre mot de passe.
+                
+                 Un email a été envoyé à %s avec un lien pour réinitialiser votre mot de passe.
+                
+                 Si vous n'avez pas fait cette demande, veuillez ignorer cet email.
+                
+                Ce lien est valable 24 heures.
+                Cordialement,
+                L'équipe Mutuelle WBF
+                """, email);
+
+            emailService.sendSimpleEmail(email, subject, body);
+            log.info("Email de confirmation de réinitialisation envoyé à: {}", email);
+        } catch (Exception e) {
+            log.error("Erreur lors de l'envoi de l'email de confirmation à {}: {}", email, e.getMessage());
         }
     }
 
@@ -314,7 +386,7 @@ public class KeycloakUserService {
             // Tenter une authentification avec l'ancien mot de passe
             try {
                 Keycloak userKeycloak = KeycloakBuilder.builder()
-                        .serverUrl(serverUrl)  // ← CORRIGÉ : utilisation de la variable
+                        .serverUrl(serverUrl)
                         .realm(realm)
                         .username(email)
                         .password(currentPassword)
@@ -346,6 +418,4 @@ public class KeycloakUserService {
             return false;
         }
     }
-
-
 }

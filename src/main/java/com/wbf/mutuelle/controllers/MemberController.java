@@ -70,7 +70,7 @@ public class MemberController {
     @PostMapping("/upload-profile")
     public ResponseEntity<?> uploadProfileImage(@AuthenticationPrincipal Jwt jwt,
                                                 @RequestParam("file") MultipartFile file) {
-        // ✅ CORRECTION: utiliser getClaimAsString
+        // CORRECTION: utiliser getClaimAsString
         String email = jwt.getClaimAsString("email");
 
         Member member = memberService.getMemberByEmail(email)
