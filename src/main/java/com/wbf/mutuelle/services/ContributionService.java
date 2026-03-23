@@ -26,6 +26,7 @@ public class ContributionService {
     private final ContributionRepository contributionRepository;
     private final ContributionPeriodRepository contributionPeriodRepository;
     private final PaymentRepository paymentRepository;
+    private final EmailService emailService;
 
     // =============================================
     // MÉTHODES CRUD DE BASE
@@ -77,6 +78,30 @@ public class ContributionService {
             savedContribution.setBalance(totalBalance);
 
             log.info("Contribution créée avec succès: ID {}", savedContribution.getId());
+
+            // ==================== ENVOI D'EMAIL DE CONFIRMATION ====================
+            if (savedContribution.getMember() != null && savedContribution.getMember().getEmail() != null) {
+                try {
+                    String memberName = savedContribution.getMember().getFirstName() + " " + savedContribution.getMember().getName();
+                    String periodName = savedContribution.getContributionPeriod() != null ?
+                            savedContribution.getContributionPeriod().getName() : "Période en cours";
+                    String paymentDate = savedContribution.getPaymentDate() != null ?
+                            savedContribution.getPaymentDate().toString() : new java.util.Date().toString();
+
+                    emailService.sendContributionConfirmation(
+                            savedContribution.getMember().getEmail(),
+                            memberName,
+                            savedContribution.getAmount().doubleValue(),
+                            periodName,
+                            paymentDate
+                    );
+                    log.info("Email de confirmation de cotisation envoyé à {}", savedContribution.getMember().getEmail());
+                } catch (Exception e) {
+                    log.error("Erreur lors de l'envoi de l'email de confirmation de cotisation: {}", e.getMessage());
+                    // Ne pas bloquer l'opération principale
+                }
+            }
+
             return savedContribution;
 
         } catch (Exception e) {

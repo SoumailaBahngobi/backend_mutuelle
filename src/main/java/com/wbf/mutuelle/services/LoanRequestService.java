@@ -15,8 +15,6 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-
-
 @Service
 @RequiredArgsConstructor
 public class LoanRequestService {
@@ -26,7 +24,7 @@ public class LoanRequestService {
     private final MemberService memberService;
     private final LoanAutoCreationService loanAutoCreationService;
     private final TreasurerLoanService treasurerLoanService;
-    LoanRequestService loanRequestService;
+    private final EmailService emailService; // ← AJOUTÉ
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -83,6 +81,23 @@ public class LoanRequestService {
 
         System.out.println(" Demande de prêt créée avec succès pour le membre: " + member.getEmail());
 
+        // ==================== ENVOI D'EMAIL DE CONFIRMATION ====================
+        if (member != null && member.getEmail() != null) {
+            try {
+                emailService.sendLoanRequestConfirmation(
+                        member.getEmail(),
+                        member.getFirstName() + " " + member.getName(),
+                        loanRequest.getRequestAmount().doubleValue(),
+                        loanRequest.getReason(),
+                        loanRequest.getId() != null ? loanRequest.getId().toString() : "En cours"
+                );
+                log.info("Email de confirmation de demande de prêt envoyé à {}", member.getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email de confirmation de demande de prêt: {}", e.getMessage());
+                // Ne pas bloquer l'opération principale
+            }
+        }
+
         return loanRequest;
     }
 
@@ -129,13 +144,32 @@ public class LoanRequestService {
                 throw new RuntimeException("Rôle non autorisé pour l'approbation");
         }
 
+        boolean wasApproved = loanRequest.isFullyApproved();
+
         if (loanRequest.isFullyApproved()) {
             loanRequest.setStatus("APPROVED");
         } else {
             loanRequest.setStatus("IN_REVIEW");
         }
 
-        return loanRequestRepository.save(loanRequest);
+        LoanRequest savedRequest = loanRequestRepository.save(loanRequest);
+
+        // ==================== ENVOI D'EMAIL D'APPROBATION ====================
+        if (savedRequest.getStatus().equals("APPROVED") && savedRequest.getMember() != null && savedRequest.getMember().getEmail() != null) {
+            try {
+                emailService.sendLoanApprovalEmail(
+                        savedRequest.getMember().getEmail(),
+                        savedRequest.getMember().getFirstName() + " " + savedRequest.getMember().getName(),
+                        savedRequest.getRequestAmount().doubleValue(),
+                        new Date().toString()
+                );
+                log.info("Email d'approbation de prêt envoyé à {}", savedRequest.getMember().getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email d'approbation: {}", e.getMessage());
+            }
+        }
+
+        return savedRequest;
     }
 
     @Transactional
@@ -150,7 +184,24 @@ public class LoanRequestService {
         loanRequest.setStatus("REJECTED");
         loanRequest.setRejectionReason(rejectionReason);
 
-        return loanRequestRepository.save(loanRequest);
+        LoanRequest savedRequest = loanRequestRepository.save(loanRequest);
+
+        // ==================== ENVOI D'EMAIL DE REJET ====================
+        if (savedRequest.getMember() != null && savedRequest.getMember().getEmail() != null) {
+            try {
+                emailService.sendLoanRejectionEmail(
+                        savedRequest.getMember().getEmail(),
+                        savedRequest.getMember().getFirstName() + " " + savedRequest.getMember().getName(),
+                        savedRequest.getRequestAmount().doubleValue(),
+                        rejectionReason
+                );
+                log.info("Email de rejet de prêt envoyé à {}", savedRequest.getMember().getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email de rejet: {}", e.getMessage());
+            }
+        }
+
+        return savedRequest;
     }
 
     @Transactional
@@ -255,13 +306,7 @@ public class LoanRequestService {
                 })
                 .collect(Collectors.toList());
     }
-/*
-    public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {
-        return loanRequestRepository.findAll().stream()
-                .map(this::enrichWithApprovalDetails)
-                .collect(Collectors.toList());
-    }
-*/
+
     private LoanRequest enrichWithApprovalDetails(LoanRequest loanRequest) {
         loanRequest.setApprovalProgress(calculateApprovalProgress(loanRequest));
         return loanRequest;
@@ -388,8 +433,6 @@ public class LoanRequestService {
         return new Date(0);
     }
 
-
-
     public List<LoanRequest> getApprovedLoans() {
         return loanRequestRepository.findByStatusAndIsRepaid("APPROVED", false);
     }
@@ -442,50 +485,7 @@ public class LoanRequestService {
     public void cancelLoanGrant(Long loanRequestId, String reason) {
         treasurerLoanService.cancelLoanGrant(loanRequestId, reason);
     }
-/*
-    public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {
-        log.info("🔍 Récupération des demandes de prêt pour l'email: {}", email);
 
-        try {
-            // Validation
-            if (email == null || email.trim().isEmpty()) {
-                log.error("❌ Email est null ou vide");
-                return new ArrayList<>();
-            }
-
-            // 1. Chercher le membre par email
-            Optional<Member> memberOpt = memberRepository.findByEmail(email);
-
-            if (memberOpt.isEmpty()) {
-                log.error("❌ Membre non trouvé avec l'email: {}", email);
-                return new ArrayList<>();
-            }
-
-            Member member = memberOpt.get();
-            log.info("✅ Membre trouvé: ID={}, Email={}, KeycloakId={}",
-                    member.getId(), member.getEmail(), member.getKeycloakId());
-
-            // 2. Récupérer les demandes de prêt du membre
-            List<LoanRequest> requests = loanRequestRepository.findByMemberId(member.getId());
-
-            // 3. Initialiser les relations LAZY si nécessaire (pour éviter les erreurs de sérialisation)
-            requests.forEach(request -> {
-                if (request.getMember() != null) {
-                    request.getMember().getEmail(); // Force l'initialisation
-                }
-            });
-
-            log.info("📊 {} demande(s) trouvée(s)", requests.size());
-
-            return requests;
-
-        } catch (Exception e) {
-            log.error("❌ Erreur lors de la récupération des demandes pour {}", email, e);
-            // Retourner une liste vide au lieu de propager l'erreur
-            return new ArrayList<>();
-        }
-    }
-*/
     public List<LoanRequest> getLoanRequestsByMemberEmail(String email) {
         log.info("🔍 Récupération des demandes de prêt pour l'email: {}", email);
 
@@ -495,7 +495,6 @@ public class LoanRequestService {
                 return new ArrayList<>();
             }
 
-            // 1. Chercher le membre par email
             Optional<Member> memberOpt = memberRepository.findByEmail(email);
 
             if (memberOpt.isEmpty()) {
@@ -506,7 +505,6 @@ public class LoanRequestService {
             Member member = memberOpt.get();
             log.info("✅ Membre trouvé: ID={}", member.getId());
 
-            // 2. Récupérer les demandes de prêt avec une requête qui charge tout
             List<LoanRequest> requests = loanRequestRepository.findByMemberIdWithDetails(member.getId());
 
             log.info("📊 {} demande(s) trouvée(s)", requests.size());
@@ -516,9 +514,6 @@ public class LoanRequestService {
             log.error("❌ Erreur lors de la récupération des demandes pour {}", email, e);
             return new ArrayList<>();
         }
-
-
-
     }
 
     public List<LoanRequest> getAllLoanRequestsWithApprovalDetails() {

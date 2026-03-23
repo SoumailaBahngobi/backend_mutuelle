@@ -1,8 +1,9 @@
 package com.wbf.mutuelle.services;
-
+import lombok.extern.slf4j.Slf4j;
 import com.wbf.mutuelle.entities.Loan;
 import com.wbf.mutuelle.entities.LoanRequest;
 import com.wbf.mutuelle.entities.Repayment;
+import com.wbf.mutuelle.entities.Member;
 import com.wbf.mutuelle.repositories.RepaymentRepository;
 import com.wbf.mutuelle.repositories.LoanRepository;
 import com.wbf.mutuelle.repositories.LoanRequestRepository;
@@ -20,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RepaymentService {
@@ -29,6 +31,7 @@ public class RepaymentService {
     private final LoanRepository loanRepository;
     private final NotificationService notificationService;
     private final ExportService exportService;
+    private final EmailService emailService;
 
     // Méthode avec pagination
     public Page<Repayment> getAllRepayments(Pageable pageable) {
@@ -78,7 +81,11 @@ public class RepaymentService {
                 }
             }
 
+            // Envoi d'email de confirmation
+            sendRepaymentEmail(saved, loanRequest.getMember());
+
             return saved;
+
         } else if (repayment.getLoan() != null && repayment.getLoan().getId() != null) {
             Loan loan = loanRepository.findById(repayment.getLoan().getId())
                     .orElseThrow(() -> new RuntimeException("Prêt non trouvé"));
@@ -107,10 +114,45 @@ public class RepaymentService {
                 }
             }
 
+            // Envoi d'email de confirmation
+            sendRepaymentEmail(saved, loan.getMember());
+
             return saved;
         }
 
         throw new RuntimeException("La demande de prêt ou le prêt doit être fourni pour créer un remboursement");
+    }
+
+    /**
+     * Envoie un email de confirmation de remboursement
+     */
+    private void sendRepaymentEmail(Repayment repayment, Member member) {
+        if (member != null && member.getEmail() != null) {
+            try {
+                BigDecimal remaining = BigDecimal.ZERO;
+                String loanId = "N/A";
+
+                if (repayment.getLoanRequest() != null) {
+                    remaining = getRemainingAmount(repayment.getLoanRequest().getId());
+                    loanId = repayment.getLoanRequest().getId().toString();
+                } else if (repayment.getLoan() != null) {
+                    remaining = repayment.getLoan().calculateRemainingBalance();
+                    loanId = repayment.getLoan().getId().toString();
+                }
+
+                emailService.sendRepaymentConfirmation(
+                        member.getEmail(),
+                        member.getFirstName() + " " + member.getName(),
+                        repayment.getAmount().doubleValue(),
+                        remaining.doubleValue(),
+                        loanId
+                );
+                log.info("Email de confirmation de remboursement envoyé à {}", member.getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email de confirmation de remboursement: {}", e.getMessage());
+                // Ne pas bloquer l'opération principale
+            }
+        }
     }
 
     @Transactional
@@ -172,6 +214,40 @@ public class RepaymentService {
         // Update associated loan or loan request status
         updateAssociatedEntityStatus(repayment);
 
+        // Envoi d'email de confirmation
+        Member member = null;
+        if (repayment.getLoanRequest() != null && repayment.getLoanRequest().getMember() != null) {
+            member = repayment.getLoanRequest().getMember();
+        } else if (repayment.getLoan() != null && repayment.getLoan().getMember() != null) {
+            member = repayment.getLoan().getMember();
+        }
+
+        if (member != null && member.getEmail() != null) {
+            try {
+                BigDecimal remaining = BigDecimal.ZERO;
+                String loanId = "N/A";
+
+                if (repayment.getLoanRequest() != null) {
+                    remaining = getRemainingAmount(repayment.getLoanRequest().getId());
+                    loanId = repayment.getLoanRequest().getId().toString();
+                } else if (repayment.getLoan() != null) {
+                    remaining = repayment.getLoan().calculateRemainingBalance();
+                    loanId = repayment.getLoan().getId().toString();
+                }
+
+                emailService.sendRepaymentConfirmation(
+                        member.getEmail(),
+                        member.getFirstName() + " " + member.getName(),
+                        amountPaid.doubleValue(),
+                        remaining.doubleValue(),
+                        loanId
+                );
+                log.info("Email de confirmation de remboursement envoyé à {}", member.getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email de confirmation de remboursement: {}", e.getMessage());
+            }
+        }
+
         return savedRepayment;
     }
 
@@ -230,6 +306,22 @@ public class RepaymentService {
             }
             if (loan.getMember() != null) {
                 notificationService.notifyLoanStatusChange(loan.getMember().getEmail(), "REPAID", "Paiement intégral reçu: " + remaining);
+            }
+        }
+
+        // Envoi d'email
+        if (loan.getMember() != null && loan.getMember().getEmail() != null) {
+            try {
+                emailService.sendRepaymentConfirmation(
+                        loan.getMember().getEmail(),
+                        loan.getMember().getFirstName() + " " + loan.getMember().getName(),
+                        remaining.doubleValue(),
+                        BigDecimal.ZERO.doubleValue(),
+                        loan.getId().toString()
+                );
+                log.info("Email de confirmation de remboursement intégral envoyé à {}", loan.getMember().getEmail());
+            } catch (Exception e) {
+                log.error("Erreur lors de l'envoi de l'email de confirmation: {}", e.getMessage());
             }
         }
     }
@@ -335,16 +427,12 @@ public class RepaymentService {
             boolean hasMemberFilter = memberId != null;
 
             if (hasStatusFilter && hasMemberFilter) {
-                // Cas 1: Filtre par statuts ET membre
                 return repaymentRepository.findByStatusInAndLoanRequestMemberIdOrLoanMemberId(statuses, memberId);
             } else if (hasStatusFilter) {
-                // Cas 2: Filtre seulement par statuts
                 return repaymentRepository.findByStatusIn(statuses);
             } else if (hasMemberFilter) {
-                // Cas 3: Filtre seulement par membre
                 return repaymentRepository.findByLoanRequestMemberIdOrLoanMemberId(memberId);
             } else {
-                // Cas 4: Aucun filtre
                 return repaymentRepository.findAll();
             }
         } catch (Exception e) {
@@ -376,7 +464,6 @@ public class RepaymentService {
         }
     }
 
-    // Méthodes supplémentaires utiles
     public List<Repayment> getOverdueRepayments() {
         return repaymentRepository.findByStatusAndDueDateBefore("PENDING", new Date());
     }
@@ -396,7 +483,6 @@ public class RepaymentService {
             repayment.setStatus("OVERDUE");
             repaymentRepository.save(repayment);
 
-            // Notifier le membre
             if (repayment.getLoanRequest() != null && repayment.getLoanRequest().getMember() != null) {
                 notificationService.notifyRepaymentStatusChange(
                         repayment.getLoanRequest().getMember().getEmail(),
@@ -426,7 +512,6 @@ public class RepaymentService {
     public Page<Repayment> getRepaymentsWithFilters(Long loanRequestId, Long loanId, String status, Long memberId, Pageable pageable) {
         List<Repayment> repayments = repaymentRepository.findWithFilters(loanRequestId, loanId, status, memberId);
 
-        // Implémentation manuelle de la pagination
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), repayments.size());
         List<Repayment> pageContent = repayments.subList(start, end);
