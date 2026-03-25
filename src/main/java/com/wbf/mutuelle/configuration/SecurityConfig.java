@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/mutuelle/public/**").permitAll()
                         .requestMatchers("/mutuelle/register").permitAll()
                         .requestMatchers("/mutuelle/**").permitAll()
+                        .requestMatchers("/mutuelle/admin/**").permitAll()
                         //http://localhost:3000/mutuelle/contribution/individual
 
                         // Routes protégées (authentification requise)

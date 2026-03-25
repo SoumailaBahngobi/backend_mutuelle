@@ -1,5 +1,6 @@
 package com.wbf.mutuelle.controllers;
 
+import com.wbf.mutuelle.dto.RoleUpdateRequest;
 import com.wbf.mutuelle.entities.Member;
 import com.wbf.mutuelle.entities.Role;
 import com.wbf.mutuelle.repositories.MemberRepository;
@@ -31,13 +32,7 @@ public class MemberController {
      */
     @GetMapping("/profile")
     public ResponseEntity<Member> getProfile(@AuthenticationPrincipal Jwt jwt) {
-        // ✅ CORRECTION: utiliser getClaimAsString au lieu de getClaim
         String email = jwt.getClaimAsString("email");
-
-        // Alternative si getClaimAsString ne fonctionne pas:
-        // Map<String, Object> claims = jwt.getClaims();
-        // String email = (String) claims.get("email");
-
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
         return ResponseEntity.ok(member);
@@ -49,9 +44,7 @@ public class MemberController {
     @PutMapping("/profile")
     public ResponseEntity<Member> updateProfile(@AuthenticationPrincipal Jwt jwt,
                                                 @RequestBody Member memberDetails) {
-        // ✅ CORRECTION: utiliser getClaimAsString
         String email = jwt.getClaimAsString("email");
-
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
 
@@ -70,13 +63,9 @@ public class MemberController {
     @PostMapping("/upload-profile")
     public ResponseEntity<?> uploadProfileImage(@AuthenticationPrincipal Jwt jwt,
                                                 @RequestParam("file") MultipartFile file) {
-        // CORRECTION: utiliser getClaimAsString
         String email = jwt.getClaimAsString("email");
-
         Member member = memberService.getMemberByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
-
-        // Logique d'upload...
         return ResponseEntity.ok(Map.of("message", "Upload réussi"));
     }
 
@@ -114,7 +103,6 @@ public class MemberController {
     public ResponseEntity<Member> updateSubscription(@PathVariable Long id,
                                                      @RequestParam Boolean isRegular,
                                                      @RequestParam String subscriptionDate) {
-        // Logique...
         return ResponseEntity.ok().build();
     }
 
@@ -122,7 +110,6 @@ public class MemberController {
     @PreAuthorize("hasRole('PRESIDENT') or hasRole('TREASURER')")
     public ResponseEntity<Member> updateDebtStatus(@PathVariable Long id,
                                                    @RequestParam Boolean hasDebt) {
-        // Logique...
         return ResponseEntity.ok().build();
     }
 
@@ -263,6 +250,59 @@ public class MemberController {
                     "error", e.getMessage()
             ));
         }
+    }
+
+    // ==================== NOUVEAUX ENDPOINTS ADMIN ====================
+
+    /**
+     * Récupérer tous les membres (pour l'admin) - SANS pagination
+     */
+    @GetMapping("/admin/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Member>> getAllMembersForAdmin() {
+        List<Member> members = memberService.getAllMembersWithDetails();
+        return ResponseEntity.ok(members);
+    }
+
+    /**
+     * Attribuer un rôle à un utilisateur
+     */
+    @PutMapping("/admin/{id}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
+        try {
+            Member updatedMember = memberService.assignRole(id, request.getRole());
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Rôle attribué avec succès",
+                    "member", updatedMember
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Récupérer les membres par rôle
+     */
+    @GetMapping("/admin/by-role/{role}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Member>> getMembersByRole(@PathVariable Role role) {
+        List<Member> members = memberService.getMembersByRole(role);
+        return ResponseEntity.ok(members);
+    }
+
+    /**
+     * Récupérer les membres sans rôle spécifique (uniquement les MEMBERS)
+     */
+    @GetMapping("/admin/pending-roles")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Member>> getMembersWithoutRoles() {
+        List<Member> members = memberService.getMembersWithoutSpecificRoles();
+        return ResponseEntity.ok(members);
     }
 
     @GetMapping("/test")

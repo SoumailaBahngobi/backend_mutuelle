@@ -121,10 +121,10 @@ public class KkiapayService {
 
                 if ("SUCCESS".equalsIgnoreCase(status)) {
                     payment.setStatus(PaymentStatus.SUCCESS);
-                    log.info("✅ Paiement réussi: {}", transactionId);
+                    log.info(" Paiement réussi: {}", transactionId);
                 } else if ("FAILED".equalsIgnoreCase(status)) {
                     payment.setStatus(PaymentStatus.FAILED);
-                    log.warn("❌ Paiement échoué: {}", transactionId);
+                    log.warn(" Paiement échoué: {}", transactionId);
                 } else if ("CANCELLED".equalsIgnoreCase(status)) {
                     payment.setStatus(PaymentStatus.CANCELLED);
                     log.info("Paiement annulé: {}", transactionId);
@@ -141,7 +141,7 @@ public class KkiapayService {
             return null;
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de la vérification de la transaction: {}", transactionId, e);
+            log.error(" Erreur lors de la vérification de la transaction: {}", transactionId, e);
             throw new RuntimeException("Erreur lors de la vérification du paiement: " + e.getMessage());
         }
     }
@@ -188,7 +188,7 @@ public class KkiapayService {
             if (response.getStatusCode() == HttpStatus.OK) {
                 payment.setStatus(PaymentStatus.REFUNDED);
                 Payment refundedPayment = paymentRepository.save(payment);
-                log.info("✅ Remboursement effectué: {}", transactionId);
+                log.info(" Remboursement effectué: {}", transactionId);
                 return refundedPayment;
             }
 

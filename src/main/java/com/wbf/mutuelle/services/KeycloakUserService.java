@@ -418,4 +418,72 @@ public class KeycloakUserService {
             return false;
         }
     }
+
+    /**
+     * Inscription d'un nouvel administrateu*/
+
+
+    @Transactional
+    public void updateUserRole(String userId, String roleName) {
+        try {
+            RealmResource realmResource = keycloakAdmin.realm(realm);
+            UserResource userResource = realmResource.users().get(userId);
+
+            // Récupérer les rôles actuels
+            List<RoleRepresentation> currentRoles = userResource.roles().realmLevel().listAll();
+
+            // Supprimer tous les rôles existants
+            if (!currentRoles.isEmpty()) {
+                userResource.roles().realmLevel().remove(currentRoles);
+                log.debug("Rôles existants supprimés pour l'utilisateur: {}", userId);
+            }
+
+            // Ajouter le nouveau rôle
+            RoleRepresentation newRole = realmResource.roles().get(roleName).toRepresentation();
+            userResource.roles().realmLevel().add(Collections.singletonList(newRole));
+
+            log.info("✅ Rôle {} attribué à l'utilisateur Keycloak {}", roleName, userId);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de la mise à jour du rôle dans Keycloak pour {}: {}", userId, e.getMessage());
+            // Ne pas bloquer si Keycloak échoue, juste logger l'erreur
+        }
+    }
+
+    @Transactional
+    public Member registerAdmin(RegisterRequest request) {
+        try {
+            // Vérifier si l'utilisateur existe déjà
+            if (userExists(request.getEmail())) {
+                throw new RuntimeException("Un utilisateur avec cet email existe déjà");
+            }
+
+            // Créer dans Keycloak
+            String userId = createUserInKeycloak(request);
+
+            // Créer dans la base locale avec le rôle ADMIN
+            Member member = new Member();
+            member.setKeycloakId(userId);
+            member.setEmail(request.getEmail());
+            member.setName(request.getName());
+            member.setFirstName(request.getFirstName());
+            member.setPhone(request.getPhone() != null ? request.getPhone() : "Non renseigné");
+            member.setNpi(request.getNpi() != null ? request.getNpi() : "ADMIN-" + System.currentTimeMillis());
+            member.setRole(Role.ADMIN);
+            member.setIsRegular(true);
+            member.setHasPreviousDebt(false);
+            member.setSubscriptionStatus("ACTIVE");
+
+            Member savedMember = memberRepository.save(member);
+
+            log.info("✅ Administrateur créé avec succès: {}", request.getEmail());
+
+            return savedMember;
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de la création de l'administrateur", e);
+            throw new RuntimeException("Erreur lors de la création de l'administrateur: " + e.getMessage());
+        }
+    }
+
 }

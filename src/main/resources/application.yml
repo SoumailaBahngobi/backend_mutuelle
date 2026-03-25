@@ -85,3 +85,7 @@ kkiapay:
   error-url: ${KKIAPAY_ERROR_URL:http://localhost:3000/payment/error}
   timeout: ${KKIAPAY_TIMEOUT:30000}
   sandbox: ${KKIAPAY_SANDBOX:true}
+
+admin:
+  registration:
+    secret: ${ADMIN_REGISTRATION_SECRET:SUPER_SECRET_2024}

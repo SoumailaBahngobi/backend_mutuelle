@@ -92,7 +92,7 @@ public class EmailService {
      * Email de notification d'approbation de prêt
      */
     public void sendLoanApprovalEmail(String to, String memberName, Double amount, String approvalDate) {
-        String subject = "✅ Votre demande de prêt a été approuvée ! - Mutuelle WBF";
+        String subject = " Votre demande de prêt a été approuvée ! - Mutuelle WBF";
         String body = String.format("""
             Bonjour %s,
             
@@ -105,7 +105,7 @@ public class EmailService {
             Date d'approbation : %s
             ────────────────────────────────
             
-            Les fonds seront disponibles sous 24-48h.
+            Les fonds seront disponibles après les analyses.
             
             Consultez votre prêt : http://localhost:3000/loans
             
@@ -199,7 +199,7 @@ public class EmailService {
      * Email de confirmation de paiement via Kkiapay
      */
     public void sendPaymentConfirmation(String to, String memberName, Double amount, String transactionId, String paymentType) {
-        String subject = "✅ Confirmation de paiement - Mutuelle WBF";
+        String subject = " Confirmation de paiement - Mutuelle WBF";
         String body = String.format("""
             Bonjour %s,
             
@@ -213,7 +213,7 @@ public class EmailService {
              Statut : Confirmé
             ────────────────────────────────
             
-            🔗 Consultez votre historique : http://localhost:3000/mutuelle/contribution/my-contributions
+            Consultez votre historique : http://localhost:3000/mutuelle/contribution/my-contributions
             
             Cordialement,
             L'équipe Mutuelle WBF
