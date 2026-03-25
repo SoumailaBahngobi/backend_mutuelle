@@ -69,19 +69,89 @@ public class AdminController {
         }
     }
 
-    // ==================== GESTION DES RÔLES ====================
+    // ==================== CRUD MEMBRES ====================
 
     @GetMapping("/members")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Member>> getAllMembers() {
+        log.info("🔍 ADMIN - Récupération de tous les membres");
         return ResponseEntity.ok(memberService.getAllMembers());
     }
+
+    @GetMapping("/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getMemberById(@PathVariable Long id) {
+        log.info("🔍 ADMIN - Récupération du membre ID: {}", id);
+        try {
+            Member member = memberService.getMemberById(id)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+            return ResponseEntity.ok(member);
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateMember(@PathVariable Long id, @RequestBody Member memberDetails) {
+        log.info("🔍 ADMIN - Mise à jour du membre ID: {}", id);
+        log.info("📝 Données reçues: {}", memberDetails);
+
+        try {
+            Member updatedMember = memberService.updateMember(id, memberDetails);
+            log.info("✅ Membre {} mis à jour avec succès", id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Membre mis à jour avec succès",
+                    "member", updatedMember
+            ));
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @DeleteMapping("/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteMember(@PathVariable Long id) {
+        log.info("🔍 ADMIN - Suppression du membre ID: {}", id);
+        try {
+            memberService.deleteMember(id);
+            log.info("✅ Membre {} supprimé avec succès", id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Membre supprimé avec succès"
+            ));
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    // ==================== GESTION DES RÔLES ====================
 
     @PutMapping("/members/{id}/role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
+        log.info("🔍 ADMIN - Attribution du rôle {} au membre ID: {}", request.getRole(), id);
         try {
             Member member = memberService.assignRole(id, request.getRole());
+
+            // Mettre à jour le rôle dans Keycloak également
+            if (member.getKeycloakId() != null) {
+                keycloakUserService.updateUserRole(member.getKeycloakId(), request.getRole().name());
+            }
+
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Rôle attribué avec succès",
@@ -98,6 +168,7 @@ public class AdminController {
     @GetMapping("/members/role/{role}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Member>> getMembersByRole(@PathVariable Role role) {
+        log.info("🔍 ADMIN - Récupération des membres avec rôle: {}", role);
         return ResponseEntity.ok(memberService.getMembersByRole(role));
     }
 }

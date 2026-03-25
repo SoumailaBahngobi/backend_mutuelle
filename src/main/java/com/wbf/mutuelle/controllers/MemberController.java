@@ -6,6 +6,7 @@ import com.wbf.mutuelle.entities.Role;
 import com.wbf.mutuelle.repositories.MemberRepository;
 import com.wbf.mutuelle.services.MemberService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/mutuelle/member")
@@ -77,22 +79,20 @@ public class MemberController {
         return memberService.getAllMembers();
     }
 
-    // ========== ADMIN ENDPOINTS ==========
-
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('PRESIDENT') or hasRole('SECRETARY')")
+    @PreAuthorize("hasRole('PRESIDENT') or hasRole('SECRETARY') or hasRole('ADMIN') or hasRole('TREASURER')")
     public Member getMemberById(@PathVariable Long id) {
         return memberService.getMemberById(id).orElseThrow();
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PRESIDENT')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('PRESIDENT')")
     public Member updateMember(@PathVariable Long id, @RequestBody Member memberDetails) {
         return memberService.updateMember(id, memberDetails);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PRESIDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteMember(@PathVariable Long id) {
         memberService.deleteMember(id);
         return ResponseEntity.noContent().build();
@@ -252,24 +252,95 @@ public class MemberController {
         }
     }
 
-    // ==================== NOUVEAUX ENDPOINTS ADMIN ====================
+    // ==================== ENDPOINTS ADMIN ====================
 
     /**
-     * Récupérer tous les membres (pour l'admin) - SANS pagination
+     * Récupérer tous les membres (admin)
      */
-    @GetMapping("/admin/all")
+    @GetMapping("/admin/members")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Member>> getAllMembersForAdmin() {
-        List<Member> members = memberService.getAllMembersWithDetails();
+    public ResponseEntity<List<Member>> getAllMembersAdmin() {
+        log.info("🔍 ADMIN - Récupération de tous les membres");
+        List<Member> members = memberService.getAllMembers();
         return ResponseEntity.ok(members);
+    }
+
+    /**
+     * Récupérer un membre par ID (admin)
+     */
+    @GetMapping("/admin/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getMemberByIdAdmin(@PathVariable Long id) {
+        log.info("🔍 ADMIN - Récupération du membre ID: {}", id);
+        try {
+            Member member = memberService.getMemberById(id)
+                    .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
+            return ResponseEntity.ok(member);
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Mettre à jour un membre (admin)
+     */
+    @PutMapping("/admin/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateMemberAdmin(@PathVariable Long id, @RequestBody Member memberDetails) {
+        log.info("🔍 ADMIN - Mise à jour du membre ID: {}", id);
+        log.info("📝 Données reçues: {}", memberDetails);
+
+        try {
+            Member updatedMember = memberService.updateMember(id, memberDetails);
+            log.info("✅ Membre {} mis à jour avec succès", id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Membre mis à jour avec succès",
+                    "member", updatedMember
+            ));
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Supprimer un membre (admin)
+     */
+    @DeleteMapping("/admin/members/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteMemberAdmin(@PathVariable Long id) {
+        log.info("🔍 ADMIN - Suppression du membre ID: {}", id);
+        try {
+            memberService.deleteMember(id);
+            log.info("✅ Membre {} supprimé avec succès", id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Membre supprimé avec succès"
+            ));
+        } catch (Exception e) {
+            log.error("❌ Erreur: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
     }
 
     /**
      * Attribuer un rôle à un utilisateur
      */
-    @PutMapping("/admin/{id}/role")
+    @PutMapping("/admin/members/{id}/role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
+        log.info("🔍 ADMIN - Attribution du rôle {} au membre ID: {}", request.getRole(), id);
         try {
             Member updatedMember = memberService.assignRole(id, request.getRole());
             return ResponseEntity.ok(Map.of(
@@ -296,7 +367,7 @@ public class MemberController {
     }
 
     /**
-     * Récupérer les membres sans rôle spécifique (uniquement les MEMBERS)
+     * Récupérer les membres sans rôle spécifique
      */
     @GetMapping("/admin/pending-roles")
     @PreAuthorize("hasRole('ADMIN')")

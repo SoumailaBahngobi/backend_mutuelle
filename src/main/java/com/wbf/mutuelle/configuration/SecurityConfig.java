@@ -44,8 +44,13 @@ public class SecurityConfig {
                         .requestMatchers("/mutuelle/public/**").permitAll()
                         .requestMatchers("/mutuelle/register").permitAll()
                         .requestMatchers("/mutuelle/**").permitAll()
-                        .requestMatchers("/mutuelle/admin/**").permitAll()
                         //http://localhost:3000/mutuelle/contribution/individual
+
+                        .requestMatchers("/mutuelle/admin/verify-secret").permitAll()
+                        .requestMatchers("/mutuelle/admin/register").permitAll()
+
+                        // Routes admin (nécessite rôle ADMIN)
+                        .requestMatchers("/mutuelle/admin/**").hasRole("ADMIN")
 
                         // Routes protégées (authentification requise)
                         .requestMatchers("/mutuelle/member/**").authenticated()
