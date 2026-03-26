@@ -41,23 +41,17 @@ public class KkiapayService {
             Member member = memberRepository.findById(memberId)
                     .orElseThrow(() -> new RuntimeException("Membre non trouvé avec ID: " + memberId));
 
-            // Vérifier que le montant est valide
             if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("Montant invalide");
             }
 
-            // Vérifier le numéro de téléphone
             if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
                 throw new RuntimeException("Numéro de téléphone requis");
             }
 
-            // Nettoyer le numéro de téléphone
             String cleanPhoneNumber = phoneNumber.replaceAll("[^0-9]", "");
-
-            // Créer une transaction unique
             String transactionId = generateTransactionId();
 
-            // Créer l'enregistrement de paiement
             Payment payment = new Payment();
             payment.setTransactionId(transactionId);
             payment.setAmount(amount);
@@ -66,6 +60,7 @@ public class KkiapayService {
             payment.setPaymentType(paymentType);
             payment.setMember(member);
             payment.setPaymentDate(LocalDateTime.now());
+            payment.setCurrency("XOF");
 
             Payment savedPayment = paymentRepository.save(payment);
             log.info("✅ Paiement initié: {} pour {} FCFA (membre: {})",
@@ -80,25 +75,21 @@ public class KkiapayService {
     }
 
     /**
-     * Vérifie le statut d'une transaction
+     * Vérifie le statut d'une transaction avec l'API Kkiapay
      */
     @Transactional
     public Payment verifyTransaction(String transactionId) {
         try {
+            // ✅ Utiliser l'URL de la configuration
+            String url = kkiapayConfig.getBaseUrl() + "/api/v1/transactions/" + transactionId;
+
             HttpHeaders headers = new HttpHeaders();
-            // String url = kkiapayConfig.getBaseUrl() + "/api/v1/transactions/" + transactionId;
-            String url = "https://api-sandbox.kkiapay.me" + transactionId;
-           /*headers.set("X-API-KEY", kkiapayConfig.getApiKey());
-            headers.set("X-SECRET-KEY", kkiapayConfig.getSecretKey());
-            headers.set("X-PRIVATE-KEY", kkiapayConfig.getPrivateKey());
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpHeaders headers = new HttpHeaders();*/
-            // ✅ UTILISE LA PRIVATE KEY (pk_...) POUR LE HEADER x-api-key
+            // ✅ Utiliser la clé privée pour l'authentification
             headers.set("x-api-key", kkiapayConfig.getPrivateKey());
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            log.info("Vérification de la transaction: {}", transactionId);
+            log.info("🔍 Vérification de la transaction: {} via URL: {}", transactionId, url);
 
             ResponseEntity<String> response = restTemplate.exchange(
                     url,
@@ -109,28 +100,45 @@ public class KkiapayService {
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 JsonNode jsonResponse = objectMapper.readTree(response.getBody());
+                log.info("📥 Réponse Kkiapay: {}", jsonResponse);
 
                 Payment payment = paymentRepository.findByTransactionId(transactionId)
                         .orElseThrow(() -> new RuntimeException("Transaction non trouvée: " + transactionId));
 
-                String status = jsonResponse.has("status") ? jsonResponse.get("status").asText() : "";
-                log.info("Statut reçu pour {}: {}", transactionId, status);
-
-                // Mettre à jour le statut
-                PaymentStatus previousStatus = payment.getStatus();
-
-                if ("SUCCESS".equalsIgnoreCase(status)) {
-                    payment.setStatus(PaymentStatus.SUCCESS);
-                    log.info(" Paiement réussi: {}", transactionId);
-                } else if ("FAILED".equalsIgnoreCase(status)) {
-                    payment.setStatus(PaymentStatus.FAILED);
-                    log.warn(" Paiement échoué: {}", transactionId);
-                } else if ("CANCELLED".equalsIgnoreCase(status)) {
-                    payment.setStatus(PaymentStatus.CANCELLED);
-                    log.info("Paiement annulé: {}", transactionId);
+                // Récupérer le statut depuis la réponse
+                String status = "";
+                if (jsonResponse.has("status")) {
+                    status = jsonResponse.get("status").asText();
+                } else if (jsonResponse.has("data") && jsonResponse.get("data").has("status")) {
+                    status = jsonResponse.get("data").get("status").asText();
                 }
 
-                // Si le statut a changé, sauvegarder
+                log.info("Statut reçu pour {}: {}", transactionId, status);
+
+                PaymentStatus previousStatus = payment.getStatus();
+
+                switch (status.toUpperCase()) {
+                    case "SUCCESS":
+                    case "SUCCEEDED":
+                    case "COMPLETED":
+                        payment.setStatus(PaymentStatus.SUCCESS);
+                        log.info("✅ Paiement réussi: {}", transactionId);
+                        break;
+                    case "FAILED":
+                    case "FAILURE":
+                        payment.setStatus(PaymentStatus.FAILED);
+                        log.warn("❌ Paiement échoué: {}", transactionId);
+                        break;
+                    case "CANCELLED":
+                    case "CANCELED":
+                        payment.setStatus(PaymentStatus.CANCELLED);
+                        log.info("⏸️ Paiement annulé: {}", transactionId);
+                        break;
+                    default:
+                        payment.setStatus(PaymentStatus.PENDING);
+                        log.info("⏳ Paiement en attente: {}", transactionId);
+                }
+
                 if (previousStatus != payment.getStatus()) {
                     payment = paymentRepository.save(payment);
                 }
@@ -138,11 +146,41 @@ public class KkiapayService {
                 return payment;
             }
 
+            log.warn("⚠️ Réponse invalide pour la transaction: {}", transactionId);
             return null;
 
         } catch (Exception e) {
-            log.error(" Erreur lors de la vérification de la transaction: {}", transactionId, e);
+            log.error("❌ Erreur lors de la vérification de la transaction: {}", transactionId, e);
             throw new RuntimeException("Erreur lors de la vérification du paiement: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Vérifie une transaction avec gestion d'erreur améliorée
+     */
+    @Transactional
+    public Map<String, Object> verifyTransactionWithDetails(String transactionId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Payment payment = verifyTransaction(transactionId);
+
+            result.put("success", payment != null && payment.getStatus() == PaymentStatus.SUCCESS);
+            result.put("status", payment != null ? payment.getStatus().name() : "UNKNOWN");
+            result.put("payment", payment);
+            result.put("transactionId", transactionId);
+
+            if (payment != null) {
+                result.put("amount", payment.getAmount());
+                result.put("phoneNumber", payment.getPhoneNumber());
+            }
+
+            return result;
+        } catch (Exception e) {
+            log.error("Erreur vérification transaction {}: {}", transactionId, e.getMessage());
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            result.put("status", "ERROR");
+            return result;
         }
     }
 
@@ -152,16 +190,9 @@ public class KkiapayService {
     @Transactional
     public Payment refundTransaction(String transactionId) {
         try {
-            /*Payment payment = paymentRepository.findByTransactionId(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée: " + transactionId));
-*/
             Payment payment = paymentRepository.findByTransactionId(transactionId)
-                    .orElseGet(() -> {
-                        log.warn("ID Kkiapay {} inconnu en base, création d'une nouvelle entrée.", transactionId);
-                        Payment newPayment = new Payment();
-                        newPayment.setTransactionId(transactionId);
-                        return newPayment;
-                    });
+                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée: " + transactionId));
+
             if (payment.getStatus() != PaymentStatus.SUCCESS) {
                 throw new RuntimeException("Seules les transactions réussies peuvent être remboursées");
             }
@@ -169,14 +200,11 @@ public class KkiapayService {
             String url = kkiapayConfig.getBaseUrl() + "/api/v1/transactions/" + transactionId + "/refund";
 
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-API-KEY", kkiapayConfig.getApiKey());
-            headers.set("X-SECRET-KEY", kkiapayConfig.getSecretKey());
-            headers.set("X-PRIVATE-KEY", kkiapayConfig.getPrivateKey());
+            headers.set("x-api-key", kkiapayConfig.getPrivateKey());
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
-
-            log.info("Tentative de remboursement: {}", transactionId);
+            log.info("🔄 Tentative de remboursement: {}", transactionId);
 
             ResponseEntity<String> response = restTemplate.exchange(
                     url,
@@ -188,14 +216,14 @@ public class KkiapayService {
             if (response.getStatusCode() == HttpStatus.OK) {
                 payment.setStatus(PaymentStatus.REFUNDED);
                 Payment refundedPayment = paymentRepository.save(payment);
-                log.info(" Remboursement effectué: {}", transactionId);
+                log.info("✅ Remboursement effectué: {}", transactionId);
                 return refundedPayment;
             }
 
             return null;
 
         } catch (Exception e) {
-            log.error(" Erreur lors du remboursement: {}", transactionId, e);
+            log.error("❌ Erreur lors du remboursement: {}", transactionId, e);
             throw new RuntimeException("Erreur lors du remboursement: " + e.getMessage());
         }
     }
@@ -204,7 +232,7 @@ public class KkiapayService {
      * Génère un ID de transaction unique
      */
     private String generateTransactionId() {
-        return "TXN" + System.currentTimeMillis() + (int) (Math.random() * 1000);
+        return "TXN" + System.currentTimeMillis() + (int) (Math.random() * 10000);
     }
 
     /**

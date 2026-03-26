@@ -35,51 +35,41 @@ public class ContributionService {
     @Transactional
     public Contribution createContribution(Contribution contribution) {
         try {
-            // Validation de base
             if (contribution.getContributionPeriod() == null || contribution.getContributionPeriod().getId() == null) {
                 throw new RuntimeException("La période de contribution doit être spécifiée !");
             }
 
-            // Récupérer la période complète avec le montant individuel
             ContributionPeriod period = contributionPeriodRepository
                     .findById(contribution.getContributionPeriod().getId())
                     .orElseThrow(() -> new RuntimeException("Période de contribution non trouvée !"));
 
-            // Calculer le montant selon le type de contribution
             BigDecimal calculatedAmount = calculateContributionAmount(contribution, period);
             contribution.setAmount(calculatedAmount);
 
-            // Date de paiement par défaut
             if (contribution.getPaymentDate() == null) {
                 contribution.setPaymentDate(new java.util.Date());
             }
 
-            // Sauvegarder d'abord la contribution
             Contribution savedContribution = contributionRepository.save(contribution);
 
-            // Gérer la relation avec le paiement si présent
             if (contribution.getPayment() != null && contribution.getPayment().getId() != null) {
                 Payment payment = paymentRepository.findById(contribution.getPayment().getId())
                         .orElseThrow(() -> new RuntimeException("Paiement non trouvé avec ID: " + contribution.getPayment().getId()));
 
-                // Mettre à jour la relation bidirectionnelle
                 payment.setContribution(savedContribution);
                 paymentRepository.save(payment);
 
-                // Mettre à jour la contribution avec la référence au paiement
                 savedContribution.setPayment(payment);
                 savedContribution = contributionRepository.save(savedContribution);
 
                 log.info("Paiement {} lié à la contribution {}", payment.getTransactionId(), savedContribution.getId());
             }
 
-            // Calculer et assigner la balance totale après sauvegarde
             BigDecimal totalBalance = calculateTotalBalance();
             savedContribution.setBalance(totalBalance);
 
             log.info("Contribution créée avec succès: ID {}", savedContribution.getId());
 
-            // ==================== ENVOI D'EMAIL DE CONFIRMATION ====================
             if (savedContribution.getMember() != null && savedContribution.getMember().getEmail() != null) {
                 try {
                     String memberName = savedContribution.getMember().getFirstName() + " " + savedContribution.getMember().getName();
@@ -98,7 +88,6 @@ public class ContributionService {
                     log.info("Email de confirmation de cotisation envoyé à {}", savedContribution.getMember().getEmail());
                 } catch (Exception e) {
                     log.error("Erreur lors de l'envoi de l'email de confirmation de cotisation: {}", e.getMessage());
-                    // Ne pas bloquer l'opération principale
                 }
             }
 
@@ -115,7 +104,6 @@ public class ContributionService {
         try {
             Contribution contribution = getContributionById(id);
 
-            // Mettre à jour les champs modifiables
             if (contributionDetails.getPaymentDate() != null) {
                 contribution.setPaymentDate(contributionDetails.getPaymentDate());
             }
@@ -126,7 +114,6 @@ public class ContributionService {
                 contribution.setPaymentProof(contributionDetails.getPaymentProof());
             }
 
-            // Si la période change, recalculer le montant
             if (contributionDetails.getContributionPeriod() != null &&
                     contributionDetails.getContributionPeriod().getId() != null &&
                     !contributionDetails.getContributionPeriod().getId()
@@ -141,12 +128,10 @@ public class ContributionService {
                 contribution.setContributionPeriod(newPeriod);
             }
 
-            // Mettre à jour la relation avec le paiement si fourni
             if (contributionDetails.getPayment() != null && contributionDetails.getPayment().getId() != null) {
                 Payment payment = paymentRepository.findById(contributionDetails.getPayment().getId())
                         .orElseThrow(() -> new RuntimeException("Paiement non trouvé"));
 
-                // Mettre à jour la relation bidirectionnelle
                 payment.setContribution(contribution);
                 paymentRepository.save(payment);
                 contribution.setPayment(payment);
@@ -154,7 +139,6 @@ public class ContributionService {
 
             Contribution updatedContribution = contributionRepository.save(contribution);
 
-            // Recalculer et assigner la balance totale après mise à jour
             BigDecimal totalBalance = calculateTotalBalance();
             updatedContribution.setBalance(totalBalance);
 
@@ -172,7 +156,6 @@ public class ContributionService {
         try {
             Contribution contribution = getContributionById(id);
 
-            // Dissocier le paiement si présent
             if (contribution.getPayment() != null) {
                 Payment payment = contribution.getPayment();
                 payment.setContribution(null);
@@ -191,13 +174,8 @@ public class ContributionService {
     public List<Contribution> getAllContributions() {
         try {
             List<Contribution> contributions = contributionRepository.findAll();
-
-            // Calculer la balance totale une seule fois
             BigDecimal totalBalance = calculateTotalBalance();
-
-            // Assigner la balance à chaque contribution
             contributions.forEach(contribution -> contribution.setBalance(totalBalance));
-
             return contributions;
         } catch (Exception e) {
             log.error("Erreur lors de la récupération de toutes les contributions", e);
@@ -208,11 +186,8 @@ public class ContributionService {
     public Contribution getContributionById(Long id) {
         Contribution contribution = contributionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Contribution non trouvée avec l'ID : " + id));
-
-        // Calculer et assigner la balance
         BigDecimal totalBalance = calculateTotalBalance();
         contribution.setBalance(totalBalance);
-
         return contribution;
     }
 
@@ -223,13 +198,8 @@ public class ContributionService {
     public List<Contribution> getContributionsByType(ContributionType contributionType) {
         try {
             List<Contribution> contributions = contributionRepository.findByContributionType(contributionType);
-
-            // Calculer la balance totale
             BigDecimal totalBalance = calculateTotalBalance();
-
-            // Assigner la balance à chaque contribution
             contributions.forEach(contribution -> contribution.setBalance(totalBalance));
-
             return contributions;
         } catch (Exception e) {
             log.error("Erreur lors de la récupération des contributions par type: " + contributionType, e);
@@ -240,13 +210,8 @@ public class ContributionService {
     public List<Contribution> getContributionsByMember(Long memberId) {
         try {
             List<Contribution> contributions = contributionRepository.findByMemberIdOrMembersId(memberId);
-
-            // Calculer la balance totale du membre
             BigDecimal memberBalance = getTotalContributionsAmountByMember(memberId);
-
-            // Assigner la balance du membre à chaque contribution
             contributions.forEach(contribution -> contribution.setBalance(memberBalance));
-
             return contributions;
         } catch (Exception e) {
             log.error("Erreur lors de la récupération de toutes les contributions du membre ID: " + memberId, e);
@@ -258,13 +223,8 @@ public class ContributionService {
         try {
             List<Contribution> contributions = contributionRepository
                     .findByMemberIdAndContributionType(memberId, ContributionType.INDIVIDUAL);
-
-            // Calculer la balance totale du membre
             BigDecimal memberBalance = getTotalContributionsAmountByMember(memberId);
-
-            // Assigner la balance du membre à chaque contribution
             contributions.forEach(contribution -> contribution.setBalance(memberBalance));
-
             return contributions;
         } catch (Exception e) {
             log.error("Erreur lors de la récupération des contributions individuelles du membre ID: " + memberId, e);
@@ -276,13 +236,8 @@ public class ContributionService {
         try {
             List<Contribution> contributions = contributionRepository
                     .findByMemberIdInMembersAndContributionType(memberId, ContributionType.GROUP);
-
-            // Calculer la balance totale du membre
             BigDecimal memberBalance = getTotalContributionsAmountByMember(memberId);
-
-            // Assigner la balance du membre à chaque contribution
             contributions.forEach(contribution -> contribution.setBalance(memberBalance));
-
             return contributions;
         } catch (Exception e) {
             log.error("Erreur lors de la récupération des contributions groupées du membre ID: " + memberId, e);
@@ -297,7 +252,6 @@ public class ContributionService {
     public BigDecimal getTotalContributionsAmountByMember(Long memberId) {
         try {
             BigDecimal total = contributionRepository.getTotalAmountByMember(memberId);
-
             log.info("Montant total des contributions pour le membre {}: {}", memberId, total);
             return total != null ? total : BigDecimal.ZERO;
         } catch (Exception e) {
@@ -322,12 +276,9 @@ public class ContributionService {
             if (contributionType == null) {
                 throw new IllegalArgumentException("Le type de contribution ne peut pas être null");
             }
-
             BigDecimal total = contributionRepository.getTotalAmountByType(contributionType);
-
             log.info("Montant total pour le type {}: {}", contributionType, total);
             return total != null ? total : BigDecimal.ZERO;
-
         } catch (Exception e) {
             log.error("Erreur lors du calcul du montant total par type: " + contributionType, e);
             return BigDecimal.ZERO;
@@ -356,75 +307,8 @@ public class ContributionService {
     }
 
     // =============================================
-    // MÉTHODES UTILITAIRES
+    // MÉTHODES POUR LE RÉSUMÉ (DASHBOARD)
     // =============================================
-
-    private BigDecimal calculateContributionAmount(Contribution contribution, ContributionPeriod period) {
-        BigDecimal individualAmount = period.getIndividualAmount();
-
-        if (individualAmount == null || individualAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Le montant individuel de la période n'est pas défini ou invalide !");
-        }
-
-        if (contribution.getContributionType() == ContributionType.INDIVIDUAL) {
-            return individualAmount;
-        } else if (contribution.getContributionType() == ContributionType.GROUP) {
-            if (contribution.getMembers() == null || contribution.getMembers().isEmpty()) {
-                throw new RuntimeException("Une cotisation groupée doit avoir au moins un membre !");
-            }
-
-            int numberOfMembers = contribution.getMembers().size();
-            return individualAmount.multiply(BigDecimal.valueOf(numberOfMembers));
-        } else {
-            throw new RuntimeException("Type de contribution non supporté !");
-        }
-    }
-
-    public Contribution saveContributionWithBalance(Contribution contribution) {
-        Contribution savedContribution = contributionRepository.save(contribution);
-
-        BigDecimal balance = calculateTotalBalance();
-        savedContribution.setBalance(balance);
-
-        return savedContribution;
-    }
-
-    public List<Contribution> getAllContributionsWithBalance() {
-        try {
-            List<Contribution> contributions = contributionRepository.findAll();
-            BigDecimal totalBalance = calculateTotalBalance();
-
-            contributions.forEach(contribution -> contribution.setBalance(totalBalance));
-
-            return contributions;
-        } catch (Exception e) {
-            log.error("Erreur lors de la récupération des contributions avec balance", e);
-            return Collections.emptyList();
-        }
-    }
-
-    public List<Contribution> getMemberContributionsWithBalance(Long memberId) {
-        try {
-            List<Contribution> contributions = contributionRepository.findByMemberId(memberId);
-            BigDecimal memberBalance = getTotalContributionsAmountByMember(memberId);
-
-            contributions.forEach(contribution -> contribution.setBalance(memberBalance));
-
-            return contributions;
-        } catch (Exception e) {
-            log.error("Erreur lors de la récupération des contributions du membre avec balance", e);
-            return Collections.emptyList();
-        }
-    }
-
-    public List<Contribution> getContributionsByPeriod(Long periodId) {
-        try {
-            return contributionRepository.findByContributionPeriodId(periodId);
-        } catch (Exception e) {
-            log.error("Erreur lors de la récupération des contributions par période ID: " + periodId, e);
-            return Collections.emptyList();
-        }
-    }
 
     public List<Contribution> getRecentContributionsByMember(Long memberId, int limit) {
         try {
@@ -445,14 +329,73 @@ public class ContributionService {
     }
 
     // =============================================
-    // MÉTHODES CORRIGÉES POUR LA RECHERCHE PAR PAIEMENT
+    // MÉTHODES UTILITAIRES
     // =============================================
 
-    /**
-     * Récupère la contribution associée à un paiement (relation OneToOne)
-     * @param paymentId L'ID du paiement
-     * @return La contribution trouvée ou null
-     */
+    private BigDecimal calculateContributionAmount(Contribution contribution, ContributionPeriod period) {
+        BigDecimal individualAmount = period.getIndividualAmount();
+
+        if (individualAmount == null || individualAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Le montant individuel de la période n'est pas défini ou invalide !");
+        }
+
+        if (contribution.getContributionType() == ContributionType.INDIVIDUAL) {
+            return individualAmount;
+        } else if (contribution.getContributionType() == ContributionType.GROUP) {
+            if (contribution.getMembers() == null || contribution.getMembers().isEmpty()) {
+                throw new RuntimeException("Une cotisation groupée doit avoir au moins un membre !");
+            }
+            int numberOfMembers = contribution.getMembers().size();
+            return individualAmount.multiply(BigDecimal.valueOf(numberOfMembers));
+        } else {
+            throw new RuntimeException("Type de contribution non supporté !");
+        }
+    }
+
+    public Contribution saveContributionWithBalance(Contribution contribution) {
+        Contribution savedContribution = contributionRepository.save(contribution);
+        BigDecimal balance = calculateTotalBalance();
+        savedContribution.setBalance(balance);
+        return savedContribution;
+    }
+
+    public List<Contribution> getAllContributionsWithBalance() {
+        try {
+            List<Contribution> contributions = contributionRepository.findAll();
+            BigDecimal totalBalance = calculateTotalBalance();
+            contributions.forEach(contribution -> contribution.setBalance(totalBalance));
+            return contributions;
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération des contributions avec balance", e);
+            return Collections.emptyList();
+        }
+    }
+
+    public List<Contribution> getMemberContributionsWithBalance(Long memberId) {
+        try {
+            List<Contribution> contributions = contributionRepository.findByMemberId(memberId);
+            BigDecimal memberBalance = getTotalContributionsAmountByMember(memberId);
+            contributions.forEach(contribution -> contribution.setBalance(memberBalance));
+            return contributions;
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération des contributions du membre avec balance", e);
+            return Collections.emptyList();
+        }
+    }
+
+    public List<Contribution> getContributionsByPeriod(Long periodId) {
+        try {
+            return contributionRepository.findByContributionPeriodId(periodId);
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération des contributions par période ID: " + periodId, e);
+            return Collections.emptyList();
+        }
+    }
+
+    // =============================================
+    // MÉTHODES POUR LA RECHERCHE PAR PAIEMENT
+    // =============================================
+
     public Contribution getContributionByPaymentId(Long paymentId) {
         try {
             Optional<Contribution> contribution = contributionRepository.findByPaymentId(paymentId);
@@ -470,11 +413,6 @@ public class ContributionService {
         }
     }
 
-    /**
-     * Récupère la contribution associée à un paiement sous forme d'Optional
-     * @param paymentId L'ID du paiement
-     * @return Optional contenant la contribution ou vide
-     */
     public Optional<Contribution> findContributionByPaymentId(Long paymentId) {
         try {
             Optional<Contribution> contribution = contributionRepository.findByPaymentId(paymentId);
@@ -489,11 +427,6 @@ public class ContributionService {
         }
     }
 
-    /**
-     * Vérifie si un paiement est déjà associé à une contribution
-     * @param paymentId L'ID du paiement
-     * @return true si une contribution existe pour ce paiement
-     */
     public boolean existsContributionByPaymentId(Long paymentId) {
         try {
             return contributionRepository.findByPaymentId(paymentId).isPresent();
@@ -503,11 +436,6 @@ public class ContributionService {
         }
     }
 
-    /**
-     * Récupère les contributions associées à un paiement (version List pour compatibilité)
-     * @param paymentId L'ID du paiement
-     * @return Liste contenant 0 ou 1 contribution
-     */
     public List<Contribution> getContributionsByPaymentIdAsList(Long paymentId) {
         try {
             Optional<Contribution> contribution = contributionRepository.findByPaymentId(paymentId);
