@@ -271,13 +271,13 @@ public class MemberController {
     @GetMapping("/admin/members/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getMemberByIdAdmin(@PathVariable Long id) {
-        log.info("🔍 ADMIN - Récupération du membre ID: {}", id);
+        log.info(" ADMIN - Récupération du membre ID: {}", id);
         try {
             Member member = memberService.getMemberById(id)
                     .orElseThrow(() -> new RuntimeException("Membre non trouvé"));
             return ResponseEntity.ok(member);
         } catch (Exception e) {
-            log.error("❌ Erreur: {}", e.getMessage());
+            log.error(" Erreur: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", e.getMessage()
@@ -285,25 +285,22 @@ public class MemberController {
         }
     }
 
-    /**
-     * Mettre à jour un membre (admin)
-     */
     @PutMapping("/admin/members/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateMemberAdmin(@PathVariable Long id, @RequestBody Member memberDetails) {
-        log.info("🔍 ADMIN - Mise à jour du membre ID: {}", id);
-        log.info("📝 Données reçues: {}", memberDetails);
+        log.info(" ADMIN - Mise à jour du membre ID: {}", id);
+        log.info(" Données reçues: {}", memberDetails);
 
         try {
             Member updatedMember = memberService.updateMember(id, memberDetails);
-            log.info("✅ Membre {} mis à jour avec succès", id);
+            log.info(" Membre {} mis à jour avec succès", id);
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Membre mis à jour avec succès",
                     "member", updatedMember
             ));
         } catch (Exception e) {
-            log.error("❌ Erreur: {}", e.getMessage());
+            log.error(" Erreur: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", e.getMessage()
@@ -317,16 +314,16 @@ public class MemberController {
     @DeleteMapping("/admin/members/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteMemberAdmin(@PathVariable Long id) {
-        log.info("🔍 ADMIN - Suppression du membre ID: {}", id);
+        log.info(" ADMIN - Suppression du membre ID: {}", id);
         try {
             memberService.deleteMember(id);
-            log.info("✅ Membre {} supprimé avec succès", id);
+            log.info(" Membre {} supprimé avec succès", id);
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Membre supprimé avec succès"
             ));
         } catch (Exception e) {
-            log.error("❌ Erreur: {}", e.getMessage());
+            log.error(" Erreur: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", e.getMessage()
@@ -340,7 +337,7 @@ public class MemberController {
     @PutMapping("/admin/members/{id}/role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
-        log.info("🔍 ADMIN - Attribution du rôle {} au membre ID: {}", request.getRole(), id);
+        log.info(" ADMIN - Attribution du rôle {} au membre ID: {}", request.getRole(), id);
         try {
             Member updatedMember = memberService.assignRole(id, request.getRole());
             return ResponseEntity.ok(Map.of(

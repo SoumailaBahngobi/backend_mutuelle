@@ -32,9 +32,7 @@ public class PaymentController {
     private final MemberRepository memberRepository;
     private final KkiapayService kkiapayService;
 
-    /**
-     * ✅ Initiation du paiement - Crée un paiement avec status PENDING
-     */
+
     @PostMapping("/initiate")
     public ResponseEntity<?> initiatePayment(@RequestBody PaymentInitiateRequest request,
                                              @AuthenticationPrincipal Jwt jwt) {
@@ -87,19 +85,15 @@ public class PaymentController {
         }
     }
 
-    /**
-     * ✅ Vérification d'un paiement avec appel à l'API Kkiapay
-     */
     @GetMapping("/verify/{transactionId}")
     public ResponseEntity<?> verifyPayment(@PathVariable String transactionId) {
         try {
-            log.info("🔍 Vérification du paiement: {}", transactionId);
+            log.info(" Vérification du paiement: {}", transactionId);
 
-            // Vérifier si le paiement existe localement
             Payment localPayment = paymentRepository.findByTransactionId(transactionId).orElse(null);
 
             if (localPayment == null) {
-                log.warn("⚠️ Transaction non trouvée: {}", transactionId);
+                log.warn(" Transaction non trouvée: {}", transactionId);
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("status", "NOT_FOUND");
@@ -107,12 +101,12 @@ public class PaymentController {
                 return ResponseEntity.ok(response);
             }
 
-            log.info("📦 Paiement trouvé localement: ID={}, status={}", localPayment.getId(), localPayment.getStatus());
+            log.info(" Paiement trouvé localement: ID={}, status={}", localPayment.getId(), localPayment.getStatus());
 
             // Appeler l'API Kkiapay pour vérifier le statut réel
             Map<String, Object> verificationResult = kkiapayService.verifyTransactionWithDetails(transactionId);
 
-            log.info("📊 Résultat vérification Kkiapay: success={}, status={}",
+            log.info(" Résultat vérification Kkiapay: success={}, status={}",
                     verificationResult.get("success"), verificationResult.get("status"));
 
             Map<String, Object> response = new HashMap<>();
@@ -125,7 +119,7 @@ public class PaymentController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de la vérification du paiement: {}", transactionId, e);
+            log.error(" Erreur lors de la vérification du paiement: {}", transactionId, e);
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("message", e.getMessage());
@@ -134,9 +128,6 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Vérification simplifiée (sans appel API externe) - utile pour le débogage
-     */
     @GetMapping("/verify-local/{transactionId}")
     public ResponseEntity<?> verifyPaymentLocal(@PathVariable String transactionId) {
         try {

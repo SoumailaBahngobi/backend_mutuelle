@@ -32,6 +32,14 @@ public class SecurityConfig {
 
     private final KeycloakSyncFilter keycloakSyncFilter;
 
+  /*  public SecurityConfig(KeycloakSyncFilter keycloakSyncFilter) {
+        this.keycloakSyncFilter = keycloakSyncFilter;
+    }*/
+
+    public KeycloakSyncFilter getKeycloakSyncFilter() {
+        return keycloakSyncFilter;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -51,7 +59,7 @@ public class SecurityConfig {
 
                         // Routes admin (nécessite rôle ADMIN)
                         .requestMatchers("/mutuelle/admin/**").hasRole("ADMIN")
-
+                         //http://localhost:8081/mutuelle/repayment
                         // Routes protégées (authentification requise)
                         .requestMatchers("/mutuelle/member/**").authenticated()
                         .requestMatchers("/mutuelle/loan_request/**").authenticated()
